@@ -374,5 +374,191 @@ router.get('/categories', authenticateToken, async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch fee categories' });
     }
 });
+// ========================================
+// RECORD ADVANCE PAYMENT (Weekly/Monthly/Termly)
+// ========================================
+router.post('/advance', authenticateToken, async (req, res) => {
+    const pool = getDb(req);
+    const { student_id, amount, payment_type, start_date, end_date, payment_method, notes } = req.body;
+    const collected_by = req.user.userId;
+    
+    if (!student_id || !amount || !payment_type || !start_date || !end_date) {
+        return res.status(400).json({ message: 'Missing required fields' });
+    }
+    
+    try {
+        const receiptNumber = `ADV-${Date.now()}-${student_id}`;
+        
+        // Record advance payment
+        const result = await pool.query(
+            `INSERT INTO advance_payments 
+             (student_id, amount, payment_type, start_date, end_date, payment_date, payment_method, collected_by, receipt_number, notes)
+             VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8, $9)
+             RETURNING *`,
+            [student_id, amount, payment_type, start_date, end_date, payment_method, collected_by, receiptNumber, notes]
+        );
+        
+        // Update student's advance balance
+        await pool.query(
+            `UPDATE students SET advance_balance = advance_balance + $1 WHERE id = $2`,
+            [amount, student_id]
+        );
+        
+        res.json({ 
+            message: 'Advance payment recorded successfully',
+            payment: result.rows[0],
+            receipt_number: receiptNumber
+        });
+    } catch (error) {
+        console.error('Error recording advance payment:', error);
+        res.status(500).json({ message: 'Failed to record advance payment', error: error.message });
+    }
+});
+
+// ========================================
+// DEDUCT FROM ADVANCE BALANCE (When student eats)
+// ========================================
+router.post('/deduct', authenticateToken, async (req, res) => {
+    const pool = getDb(req);
+    const { student_id, amount, deduction_date, daily_fee_id } = req.body;
+    
+    if (!student_id || !amount) {
+        return res.status(400).json({ message: 'Student ID and amount are required' });
+    }
+    
+    try {
+        // Get current advance balance
+        const balanceResult = await pool.query(
+            `SELECT advance_balance FROM students WHERE id = $1`,
+            [student_id]
+        );
+        
+        const currentBalance = parseFloat(balanceResult.rows[0]?.advance_balance || 0);
+        
+        if (currentBalance < amount) {
+            return res.status(400).json({ 
+                message: 'Insufficient advance balance',
+                current_balance: currentBalance,
+                requested: amount
+            });
+        }
+        
+        // Find oldest advance payment to deduct from
+        const advanceResult = await pool.query(
+            `SELECT id, amount FROM advance_payments 
+             WHERE student_id = $1 AND start_date <= $2 AND end_date >= $2
+             ORDER BY created_at ASC
+             LIMIT 1`,
+            [student_id, deduction_date || new Date().toISOString().split('T')[0]]
+        );
+        
+        let advancePaymentId = null;
+        if (advanceResult.rows.length > 0) {
+            advancePaymentId = advanceResult.rows[0].id;
+        }
+        
+        // Record deduction
+        const newBalance = currentBalance - amount;
+        const deductionResult = await pool.query(
+            `INSERT INTO advance_deductions 
+             (advance_payment_id, student_id, deduction_date, amount_deducted, daily_fee_id, remaining_balance)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING *`,
+            [advancePaymentId, student_id, deduction_date || new Date().toISOString().split('T')[0], amount, daily_fee_id, newBalance]
+        );
+        
+        // Update student's advance balance
+        await pool.query(
+            `UPDATE students SET advance_balance = advance_balance - $1 WHERE id = $2`,
+            [amount, student_id]
+        );
+        
+        res.json({ 
+            message: 'Deducted from advance balance',
+            deducted: amount,
+            remaining_balance: newBalance,
+            deduction: deductionResult.rows[0]
+        });
+    } catch (error) {
+        console.error('Error deducting from advance:', error);
+        res.status(500).json({ message: 'Failed to deduct from advance', error: error.message });
+    }
+});
+
+// ========================================
+// GET STUDENT ADVANCE BALANCE AND HISTORY
+// ========================================
+router.get('/advance/student/:studentId', authenticateToken, async (req, res) => {
+    const pool = getDb(req);
+    const studentId = req.params.studentId;
+    const schoolId = req.user.schoolId;
+    
+    try {
+        // Get student info and balance
+        const studentResult = await pool.query(
+            `SELECT id, full_name, admission_number, advance_balance
+             FROM students
+             WHERE id = $1 AND school_id = $2`,
+            [studentId, schoolId]
+        );
+        
+        if (studentResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
+        
+        // Get advance payment history
+        const paymentsResult = await pool.query(
+            `SELECT * FROM advance_payments
+             WHERE student_id = $1
+             ORDER BY created_at DESC`,
+            [studentId]
+        );
+        
+        // Get deduction history
+        const deductionsResult = await pool.query(
+            `SELECT ad.*, df.amount as daily_amount, df.payment_date
+             FROM advance_deductions ad
+             LEFT JOIN daily_feeding_fees df ON ad.daily_fee_id = df.id
+             WHERE ad.student_id = $1
+             ORDER BY ad.deduction_date DESC
+             LIMIT 50`,
+            [studentId]
+        );
+        
+        res.json({
+            student: studentResult.rows[0],
+            balance: parseFloat(studentResult.rows[0].advance_balance),
+            advance_payments: paymentsResult.rows,
+            deductions: deductionsResult.rows
+        });
+    } catch (error) {
+        console.error('Error fetching advance data:', error);
+        res.status(500).json({ message: 'Failed to fetch advance data', error: error.message });
+    }
+});
+
+// ========================================
+// GET ALL STUDENTS WITH ADVANCE BALANCE BY CLASS
+// ========================================
+router.get('/advance/class/:classLevelId', authenticateToken, async (req, res) => {
+    const pool = getDb(req);
+    const classLevelId = req.params.classLevelId;
+    const schoolId = req.user.schoolId;
+    
+    try {
+        const result = await pool.query(
+            `SELECT s.id, s.full_name, s.admission_number, s.advance_balance
+             FROM students s
+             WHERE s.school_id = $1 AND s.class_level_id = $2
+             ORDER BY s.full_name`,
+            [schoolId, classLevelId]
+        );
+        
+        res.json({ students: result.rows });
+    } catch (error) {
+        console.error('Error fetching advance balances:', error);
+        res.status(500).json({ message: 'Failed to fetch balances', error: error.message });
+    }
+});
 
 module.exports = router;
