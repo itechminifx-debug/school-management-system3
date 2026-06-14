@@ -14,7 +14,6 @@ router.get('/advance/class/:classLevelId', authenticateToken, async (req, res) =
     console.log('Fetching students for class:', classLevelId);
     
     try {
-        // Simplified query - remove school_id filter temporarily
         const result = await pool.query(
             `SELECT s.id, s.full_name, s.admission_number, COALESCE(s.advance_balance, 0) as advance_balance
              FROM students s
@@ -30,6 +29,7 @@ router.get('/advance/class/:classLevelId', authenticateToken, async (req, res) =
         res.status(500).json({ message: 'Failed to fetch balances', error: error.message });
     }
 });
+
 // ========================================
 // GET STUDENT ADVANCE BALANCE AND HISTORY
 // ========================================
