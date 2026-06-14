@@ -4,142 +4,48 @@ const { authenticateToken, authorizeRole } = require('../middleware/auth.middlew
 
 const getDb = (req) => req.app.get('db');
 
-// Get all fee categories
-router.get('/categories', authenticateToken, async (req, res) => {
+// Record daily feeding fee payment
+router.post('/record', authenticateToken, async (req, res) => {
     const pool = getDb(req);
-    try {
-        const result = await pool.query(
-            'SELECT * FROM fee_categories WHERE is_active = true ORDER BY id'
-        );
-        res.json({ categories: result.rows });
-    } catch (error) {
-        console.error('Error fetching fee categories:', error);
-        res.status(500).json({ message: 'Failed to fetch fee categories' });
+    const { student_id, amount, payment_method, notes } = req.body;
+    const collected_by = req.user.userId;
+    const payment_date = new Date().toISOString().split('T')[0];
+    
+    if (!student_id || !amount || amount <= 0) {
+        return res.status(400).json({ message: 'Valid amount is required' });
     }
-});
-
-// Get fees for a specific student
-router.get('/student/:studentId', authenticateToken, async (req, res) => {
-    const pool = getDb(req);
-    const schoolId = req.user.schoolId;
-    const studentId = req.params.studentId;
     
     try {
-        // Verify student belongs to this school
-        const studentCheck = await pool.query(
-            'SELECT id FROM students WHERE id = $1 AND school_id = $2',
-            [studentId, schoolId]
-        );
-        
-        if (studentCheck.rows.length === 0) {
-            return res.status(404).json({ message: 'Student not found' });
-        }
+        const receiptNumber = `FEE-${payment_date.replace(/-/g, '')}-${student_id}-${Date.now()}`;
         
         const result = await pool.query(
-            `SELECT sf.*, fc.name as fee_name, fc.description,
-                    s.full_name as student_name, s.admission_number
-             FROM student_fees sf
-             JOIN fee_categories fc ON sf.fee_category_id = fc.id
-             JOIN students s ON sf.student_id = s.id
-             WHERE sf.student_id = $1
-             ORDER BY sf.created_at DESC`,
-            [studentId]
-        );
-        
-        // Get payment history
-        for (let fee of result.rows) {
-            const payments = await pool.query(
-                `SELECT * FROM fee_payments 
-                 WHERE student_fee_id = $1 
-                 ORDER BY payment_date DESC`,
-                [fee.id]
-            );
-            fee.payments = payments.rows;
-        }
-        
-        res.json({ fees: result.rows });
-    } catch (error) {
-        console.error('Error fetching student fees:', error);
-        res.status(500).json({ message: 'Failed to fetch student fees' });
-    }
-});
-
-// Get all students with fee summary by class
-router.get('/summary/:classLevelId', authenticateToken, async (req, res) => {
-    const pool = getDb(req);
-    const schoolId = req.user.schoolId;
-    const classLevelId = req.params.classLevelId;
-    
-    try {
-        const result = await pool.query(
-            `SELECT s.id, s.full_name, s.admission_number,
-                    COALESCE(SUM(sf.amount), 0) as total_fees,
-                    COALESCE(SUM(sf.amount_paid), 0) as total_paid,
-                    COALESCE(SUM(sf.amount - sf.amount_paid), 0) as total_balance
-             FROM students s
-             LEFT JOIN student_fees sf ON s.id = sf.student_id
-             WHERE s.school_id = $1 AND s.class_level_id = $2
-             GROUP BY s.id, s.full_name, s.admission_number
-             ORDER BY s.full_name`,
-            [schoolId, classLevelId]
-        );
-        
-        res.json({ summary: result.rows });
-    } catch (error) {
-        console.error('Error fetching fee summary:', error);
-        res.status(500).json({ message: 'Failed to fetch fee summary' });
-    }
-});
-
-// Record a fee payment
-router.post('/payment', authenticateToken, async (req, res) => {
-    const pool = getDb(req);
-    const { student_fee_id, amount_paid, payment_method, transaction_id, remarks } = req.body;
-    const received_by = req.user.userId;
-    
-    try {
-        // Get current fee record
-        const feeResult = await pool.query(
-            'SELECT * FROM student_fees WHERE id = $1',
-            [student_fee_id]
-        );
-        
-        if (feeResult.rows.length === 0) {
-            return res.status(404).json({ message: 'Fee record not found' });
-        }
-        
-        const currentFee = feeResult.rows[0];
-        const newAmountPaid = parseFloat(currentFee.amount_paid) + parseFloat(amount_paid);
-        let status = 'pending';
-        
-        if (newAmountPaid >= parseFloat(currentFee.amount)) {
-            status = 'paid';
-        } else if (newAmountPaid > 0) {
-            status = 'partial';
-        }
-        
-        // Update student_fees
-        await pool.query(
-            `UPDATE student_fees 
-             SET amount_paid = $1, status = $2
-             WHERE id = $3`,
-            [newAmountPaid, status, student_fee_id]
-        );
-        
-        // Record payment
-        const receiptNumber = `RCP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-        
-        const paymentResult = await pool.query(
-            `INSERT INTO fee_payments 
-             (student_fee_id, amount_paid, payment_method, transaction_id, received_by, receipt_number, remarks)
+            `INSERT INTO daily_feeding_fees 
+             (student_id, amount, payment_date, payment_method, collected_by, receipt_number, notes)
              VALUES ($1, $2, $3, $4, $5, $6, $7)
              RETURNING *`,
-            [student_fee_id, amount_paid, payment_method, transaction_id, received_by, receiptNumber, remarks]
+            [student_id, amount, payment_date, payment_method, collected_by, receiptNumber, notes]
+        );
+        
+        // Update or create daily summary
+        await pool.query(
+            `INSERT INTO daily_collection_summary (collection_date, class_level_id, total_students, total_collected)
+             SELECT $1, s.class_level_id, COUNT(DISTINCT d.student_id), COALESCE(SUM(d.amount), 0)
+             FROM daily_feeding_fees d
+             JOIN students s ON d.student_id = s.id
+             WHERE d.payment_date = $1 AND s.class_level_id = COALESCE(
+                 (SELECT class_level_id FROM students WHERE id = $2), 0
+             )
+             GROUP BY s.class_level_id
+             ON CONFLICT (collection_date, class_level_id)
+             DO UPDATE SET 
+                total_students = EXCLUDED.total_students,
+                total_collected = EXCLUDED.total_collected`,
+            [payment_date, student_id]
         );
         
         res.json({ 
             message: 'Payment recorded successfully',
-            payment: paymentResult.rows[0],
+            payment: result.rows[0],
             receipt_number: receiptNumber
         });
     } catch (error) {
@@ -148,48 +54,125 @@ router.post('/payment', authenticateToken, async (req, res) => {
     }
 });
 
-// Get fee dashboard statistics
-router.get('/dashboard', authenticateToken, async (req, res) => {
+// Get daily collection by class
+router.get('/daily/:date/:classLevelId', authenticateToken, async (req, res) => {
     const pool = getDb(req);
+    const { date, classLevelId } = req.params;
     const schoolId = req.user.schoolId;
     
     try {
-        // Total fees collected
-        const totalCollected = await pool.query(
-            `SELECT COALESCE(SUM(amount_paid), 0) as total 
-             FROM student_fees sf
-             JOIN students s ON sf.student_id = s.id
-             WHERE s.school_id = $1`,
-            [schoolId]
+        // Get all students in the class
+        const studentsResult = await pool.query(
+            `SELECT s.id, s.full_name, s.admission_number
+             FROM students s
+             WHERE s.school_id = $1 AND s.class_level_id = $2
+             ORDER BY s.full_name`,
+            [schoolId, classLevelId]
         );
         
-        // Total outstanding balance
-        const totalOutstanding = await pool.query(
-            `SELECT COALESCE(SUM(amount - amount_paid), 0) as total 
-             FROM student_fees sf
-             JOIN students s ON sf.student_id = s.id
-             WHERE s.school_id = $1`,
-            [schoolId]
+        // Get payments for the selected date
+        const paymentsResult = await pool.query(
+            `SELECT d.*, s.full_name, s.admission_number
+             FROM daily_feeding_fees d
+             JOIN students s ON d.student_id = s.id
+             WHERE d.payment_date = $1 AND s.class_level_id = $2 AND s.school_id = $3
+             ORDER BY s.full_name`,
+            [date, classLevelId, schoolId]
         );
         
-        // Payment status breakdown
-        const statusBreakdown = await pool.query(
-            `SELECT sf.status, COUNT(*) as count
-             FROM student_fees sf
-             JOIN students s ON sf.student_id = s.id
-             WHERE s.school_id = $1
-             GROUP BY sf.status`,
-            [schoolId]
+        // Create payment map
+        const paymentMap = {};
+        paymentsResult.rows.forEach(p => {
+            paymentMap[p.student_id] = p;
+        });
+        
+        // Combine data
+        const collection = studentsResult.rows.map(student => ({
+            ...student,
+            paid: !!paymentMap[student.id],
+            amount: paymentMap[student.id]?.amount || 0,
+            receipt_number: paymentMap[student.id]?.receipt_number || null,
+            payment_method: paymentMap[student.id]?.payment_method || null
+        }));
+        
+        const totalCollected = paymentsResult.rows.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+        const totalPaid = paymentsResult.rows.length;
+        
+        res.json({
+            date,
+            class_level_id: parseInt(classLevelId),
+            total_students: studentsResult.rows.length,
+            total_paid: totalPaid,
+            total_collected: totalCollected,
+            collection: collection
+        });
+    } catch (error) {
+        console.error('Error fetching daily collection:', error);
+        res.status(500).json({ message: 'Failed to fetch collection data' });
+    }
+});
+
+// Get collection summary for date range
+router.get('/summary/:startDate/:endDate', authenticateToken, async (req, res) => {
+    const pool = getDb(req);
+    const { startDate, endDate } = req.params;
+    const schoolId = req.user.schoolId;
+    
+    try {
+        const result = await pool.query(
+            `SELECT d.payment_date, c.name as class_name, 
+                    COUNT(DISTINCT d.student_id) as students_paid,
+                    COALESCE(SUM(d.amount), 0) as total_collected
+             FROM daily_feeding_fees d
+             JOIN students s ON d.student_id = s.id
+             JOIN class_levels c ON s.class_level_id = c.id
+             WHERE d.payment_date BETWEEN $1 AND $2 AND s.school_id = $3
+             GROUP BY d.payment_date, c.name, c.level_order
+             ORDER BY d.payment_date DESC, c.level_order`,
+            [startDate, endDate, schoolId]
+        );
+        
+        res.json({ summary: result.rows });
+    } catch (error) {
+        console.error('Error fetching summary:', error);
+        res.status(500).json({ message: 'Failed to fetch summary' });
+    }
+});
+
+// Get today's collection for printing
+router.get('/print/:date/:classLevelId', authenticateToken, async (req, res) => {
+    const pool = getDb(req);
+    const { date, classLevelId } = req.params;
+    const schoolId = req.user.schoolId;
+    
+    try {
+        const result = await pool.query(
+            `SELECT s.full_name, s.admission_number, 
+                    d.amount, d.receipt_number, d.payment_method, d.payment_date
+             FROM students s
+             LEFT JOIN daily_feeding_fees d ON s.id = d.student_id AND d.payment_date = $1
+             WHERE s.class_level_id = $2 AND s.school_id = $3
+             ORDER BY s.full_name`,
+            [date, classLevelId, schoolId]
+        );
+        
+        const summary = await pool.query(
+            `SELECT COUNT(d.id) as paid_count, COALESCE(SUM(d.amount), 0) as total
+             FROM daily_feeding_fees d
+             JOIN students s ON d.student_id = s.id
+             WHERE d.payment_date = $1 AND s.class_level_id = $2 AND s.school_id = $3`,
+            [date, classLevelId, schoolId]
         );
         
         res.json({
-            total_collected: totalCollected.rows[0].total,
-            total_outstanding: totalOutstanding.rows[0].total,
-            status_breakdown: statusBreakdown.rows
+            date,
+            class_level_id: parseInt(classLevelId),
+            students: result.rows,
+            summary: summary.rows[0]
         });
     } catch (error) {
-        console.error('Error fetching fee dashboard:', error);
-        res.status(500).json({ message: 'Failed to fetch dashboard data' });
+        console.error('Error fetching print data:', error);
+        res.status(500).json({ message: 'Failed to fetch print data' });
     }
 });
 
