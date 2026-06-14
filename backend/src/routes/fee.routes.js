@@ -36,14 +36,13 @@ router.get('/advance/class/:classLevelId', authenticateToken, async (req, res) =
 router.get('/advance/student/:studentId', authenticateToken, async (req, res) => {
     const pool = getDb(req);
     const studentId = req.params.studentId;
-    const schoolId = req.user.schoolId;
     
     try {
         const studentResult = await pool.query(
             `SELECT id, full_name, admission_number, COALESCE(advance_balance, 0) as advance_balance
              FROM students
-             WHERE id = $1 AND school_id = $2`,
-            [studentId, schoolId]
+             WHERE id = $1`,
+            [studentId]
         );
         
         if (studentResult.rows.length === 0) {
