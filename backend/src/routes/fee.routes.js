@@ -11,8 +11,6 @@ router.get('/advance/class/:classLevelId', authenticateToken, async (req, res) =
     const pool = getDb(req);
     const classLevelId = req.params.classLevelId;
     
-    console.log('Fetching students for class:', classLevelId);
-    
     try {
         const result = await pool.query(
             `SELECT s.id, s.full_name, s.admission_number, COALESCE(s.advance_balance, 0) as advance_balance
@@ -22,7 +20,6 @@ router.get('/advance/class/:classLevelId', authenticateToken, async (req, res) =
             [classLevelId]
         );
         
-        console.log('Found students:', result.rows.length);
         res.json({ students: result.rows });
     } catch (error) {
         console.error('Error fetching advance balances:', error);
@@ -83,8 +80,6 @@ router.post('/advance', authenticateToken, async (req, res) => {
     const pool = getDb(req);
     const { student_id, amount, payment_type, start_date, end_date, payment_method, notes } = req.body;
     const collected_by = req.user.userId;
-    
-    console.log('Advance payment request:', req.body);
     
     if (!student_id || !amount || !payment_type || !start_date || !end_date) {
         return res.status(400).json({ message: 'Missing required fields' });
