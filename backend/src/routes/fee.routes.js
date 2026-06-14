@@ -296,5 +296,133 @@ router.get('/recent', authenticateToken, async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch recent payments' });
     }
 });
+// ========================================
+// DELETE/UNDO AN ADVANCE PAYMENT
+// ========================================
+router.delete('/advance/:paymentId', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+    const pool = getDb(req);
+    const paymentId = req.params.paymentId;
+    
+    try {
+        // Get the advance payment details first
+        const paymentResult = await pool.query(
+            `SELECT * FROM advance_payments WHERE id = $1`,
+            [paymentId]
+        );
+        
+        if (paymentResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Advance payment not found' });
+        }
+        
+        const payment = paymentResult.rows[0];
+        
+        // Subtract from student's balance
+        await pool.query(
+            `UPDATE students SET advance_balance = COALESCE(advance_balance, 0) - $1 WHERE id = $2`,
+            [payment.amount, payment.student_id]
+        );
+        
+        // Delete the advance payment
+        await pool.query(`DELETE FROM advance_payments WHERE id = $1`, [paymentId]);
+        
+        // Delete associated deductions
+        await pool.query(`DELETE FROM advance_deductions WHERE advance_payment_id = $1`, [paymentId]);
+        
+        res.json({ 
+            message: 'Advance payment deleted successfully',
+            deleted_amount: payment.amount
+        });
+    } catch (error) {
+        console.error('Error deleting advance payment:', error);
+        res.status(500).json({ message: 'Failed to delete advance payment', error: error.message });
+    }
+});
+
+// ========================================
+// DELETE/UNDO A DEDUCTION
+// ========================================
+router.delete('/deduction/:deductionId', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+    const pool = getDb(req);
+    const deductionId = req.params.deductionId;
+    
+    try {
+        const deductionResult = await pool.query(
+            `SELECT * FROM advance_deductions WHERE id = $1`,
+            [deductionId]
+        );
+        
+        if (deductionResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Deduction not found' });
+        }
+        
+        const deduction = deductionResult.rows[0];
+        
+        // Add back to student's balance
+        await pool.query(
+            `UPDATE students SET advance_balance = COALESCE(advance_balance, 0) + $1 WHERE id = $2`,
+            [deduction.amount_deducted, deduction.student_id]
+        );
+        
+        // Delete the deduction
+        await pool.query(`DELETE FROM advance_deductions WHERE id = $1`, [deductionId]);
+        
+        res.json({ 
+            message: 'Deduction undone successfully',
+            added_back: deduction.amount_deducted
+        });
+    } catch (error) {
+        console.error('Error undoing deduction:', error);
+        res.status(500).json({ message: 'Failed to undo deduction', error: error.message });
+    }
+});
+
+// ========================================
+// PRINT ADVANCE PAYMENT REPORT
+// ========================================
+router.get('/advance/print/:studentId', authenticateToken, async (req, res) => {
+    const pool = getDb(req);
+    const studentId = req.params.studentId;
+    const schoolId = req.user.schoolId;
+    
+    try {
+        const studentResult = await pool.query(
+            `SELECT s.id, s.full_name, s.admission_number, s.class_level_id, c.name as class_name, COALESCE(s.advance_balance, 0) as balance
+             FROM students s
+             JOIN class_levels c ON s.class_level_id = c.id
+             WHERE s.id = $1 AND s.school_id = $2`,
+            [studentId, schoolId]
+        );
+        
+        const paymentsResult = await pool.query(
+            `SELECT * FROM advance_payments
+             WHERE student_id = $1
+             ORDER BY created_at DESC`,
+            [studentId]
+        );
+        
+        const deductionsResult = await pool.query(
+            `SELECT * FROM advance_deductions
+             WHERE student_id = $1
+             ORDER BY deduction_date DESC
+             LIMIT 50`,
+            [studentId]
+        );
+        
+        const totalAdvance = paymentsResult.rows.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+        const totalDeducted = deductionsResult.rows.reduce((sum, d) => sum + parseFloat(d.amount_deducted), 0);
+        
+        res.json({
+            student: studentResult.rows[0],
+            balance: parseFloat(studentResult.rows[0].balance),
+            total_advance: totalAdvance,
+            total_deducted: totalDeducted,
+            advance_payments: paymentsResult.rows,
+            deductions: deductionsResult.rows
+        });
+    } catch (error) {
+        console.error('Error generating advance report:', error);
+        res.status(500).json({ message: 'Failed to generate report', error: error.message });
+    }
+});
 
 module.exports = router;
