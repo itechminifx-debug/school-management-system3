@@ -43,7 +43,7 @@ function Grades() {
   const fetchClassLevels = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.get('http://localhost:5000/api/class-levels', {
+      const response = await axios.get('https://school-management-api-5mml.onrender.com/api/class-levels', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setClassLevels(response.data.classLevels);
@@ -58,7 +58,7 @@ function Grades() {
   const fetchAllStudents = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.get('http://localhost:5000/api/students', {
+      const response = await axios.get('https://school-management-api-5mml.onrender.com/api/students', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setStudents(response.data.students);
@@ -71,15 +71,13 @@ function Grades() {
     const token = localStorage.getItem('token');
     setLoading(true);
     try {
-      const timestamp = new Date().getTime();
-      const response = await axios.get(`http://localhost:5000/api/subjects/by-class/${selectedClass}?t=${timestamp}`, {
+      const response = await axios.get(`https://school-management-api-5mml.onrender.com/api/subjects/by-class/${selectedClass}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       let subjectsList = response.data.subjects;
       const classId = parseInt(selectedClass);
       
-      // Kindergarten (KG 1 = ID 4, KG 2 = ID 5)
       if (classId === 4 || classId === 5) {
         subjectsList = [
           { id: 1, name: 'Literacy', is_core: true },
@@ -88,9 +86,7 @@ function Grades() {
           { id: 4, name: 'Religious & Moral Education', is_core: true },
           { id: 5, name: 'Phonics', is_core: true }
         ];
-      }
-      // Lower Primary (Basic 1,2,3 = ID 6,7,8) - NO Computing, NO History
-      else if (classId === 6 || classId === 7 || classId === 8) {
+      } else if (classId === 6 || classId === 7 || classId === 8) {
         subjectsList = [
           { id: 1, name: 'English Language', is_core: true },
           { id: 2, name: 'Mathematics', is_core: true },
@@ -100,9 +96,7 @@ function Grades() {
           { id: 6, name: 'Creative Arts', is_core: false },
           { id: 7, name: 'Phonics', is_core: false }
         ];
-      }
-      // Upper Primary (Basic 4,5,6 = ID 9,10,11) - HAS Computing and History
-      else if (classId === 9 || classId === 10 || classId === 11) {
+      } else if (classId === 9 || classId === 10 || classId === 11) {
         subjectsList = [
           { id: 1, name: 'English Language', is_core: true },
           { id: 2, name: 'Mathematics', is_core: true },
@@ -114,9 +108,7 @@ function Grades() {
           { id: 8, name: 'Ghanaian Language', is_core: true },
           { id: 9, name: 'French', is_core: false }
         ];
-      }
-      // JHS (JHS 1,2,3 = ID 12,13,14)
-      else if (classId === 12 || classId === 13 || classId === 14) {
+      } else if (classId === 12 || classId === 13 || classId === 14) {
         subjectsList = [
           { id: 1, name: 'English Language', is_core: true },
           { id: 2, name: 'Mathematics', is_core: true },
@@ -147,7 +139,7 @@ function Grades() {
     for (const student of filteredStudents) {
       try {
         const response = await axios.get(
-          `http://localhost:5000/api/grades/report/${student.id}/${term}/${academicYear}`,
+          `https://school-management-api-5mml.onrender.com/api/grades/report/${student.id}/${term}/${academicYear}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         
@@ -186,7 +178,7 @@ function Grades() {
         const score = gradesData[student.id]?.[subject.name];
         if (score && score !== '') {
           try {
-            await axios.post('http://localhost:5000/api/grades', {
+            await axios.post('https://school-management-api-5mml.onrender.com/api/grades', {
               student_id: student.id,
               subject: subject.name,
               score: parseFloat(score),
