@@ -4,35 +4,24 @@ import axios from 'axios';
 function Fees() {
   const [classLevels, setClassLevels] = useState([]);
   const [selectedClass, setSelectedClass] = useState('');
-  const [students, setStudents] = useState([]);
-  const [feeSummary, setFeeSummary] = useState([]);
-  const [selectedStudent, setSelectedStudent] = useState('');
-  const [studentFees, setStudentFees] = useState([]);
-  const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [collection, setCollection] = useState({ collection: [], total_students: 0, total_paid: 0, total_collected: 0 });
+  const [amounts, setAmounts] = useState({});
+  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [dashboard, setDashboard] = useState({ total_collected: 0, total_outstanding: 0 });
-
+  
   const apiUrl = 'https://school-management-api-5mml.onrender.com';
 
   useEffect(() => {
     fetchClassLevels();
-    fetchDashboard();
   }, []);
 
   useEffect(() => {
     if (selectedClass) {
-      fetchFeeSummary();
+      fetchDailyCollection();
     }
-  }, [selectedClass]);
-
-  useEffect(() => {
-    if (selectedStudent) {
-      fetchStudentFees();
-    }
-  }, [selectedStudent]);
+  }, [selectedClass, selectedDate]);
 
   const fetchClassLevels = async () => {
     const token = localStorage.getItem('token');
@@ -49,45 +38,40 @@ function Fees() {
     }
   };
 
-  const fetchDashboard = async () => {
+  const fetchDailyCollection = async () => {
+    setLoading(true);
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.get(`${apiUrl}/api/fees/dashboard`, {
+      const response = await axios.get(`${apiUrl}/api/fees/daily/${selectedDate}/${selectedClass}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setDashboard(response.data);
+      setCollection(response.data);
+      
+      // Initialize amounts with existing payments
+      const initialAmounts = {};
+      response.data.collection.forEach(student => {
+        if (student.paid) {
+          initialAmounts[student.id] = student.amount;
+        }
+      });
+      setAmounts(initialAmounts);
     } catch (error) {
-      console.error('Error fetching dashboard:', error);
+      console.error('Error fetching collection:', error);
+      setError('Failed to load collection data');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const fetchFeeSummary = async () => {
-    const token = localStorage.getItem('token');
-    try {
-      const response = await axios.get(`${apiUrl}/api/fees/summary/${selectedClass}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setFeeSummary(response.data.summary);
-    } catch (error) {
-      console.error('Error fetching fee summary:', error);
-    }
+  const handleAmountChange = (studentId, value) => {
+    setAmounts(prev => ({ ...prev, [studentId]: value }));
   };
 
-  const fetchStudentFees = async () => {
-    const token = localStorage.getItem('token');
-    try {
-      const response = await axios.get(`${apiUrl}/api/fees/student/${selectedStudent}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setStudentFees(response.data.fees);
-    } catch (error) {
-      console.error('Error fetching student fees:', error);
-    }
-  };
-
-  const handlePayment = async (feeId) => {
-    if (!paymentAmount || paymentAmount <= 0) {
+  const handleRecordPayment = async (studentId) => {
+    const amount = amounts[studentId];
+    if (!amount || amount <= 0) {
       setError('Please enter a valid amount');
+      setTimeout(() => setError(''), 3000);
       return;
     }
 
@@ -95,22 +79,20 @@ function Fees() {
     const token = localStorage.getItem('token');
     
     try {
-      await axios.post(`${apiUrl}/api/fees/payment`, {
-        student_fee_id: feeId,
-        amount_paid: parseFloat(paymentAmount),
-        payment_method: paymentMethod,
-        remarks: 'Feeding fee payment'
+      await axios.post(`${apiUrl}/api/fees/record`, {
+        student_id: studentId,
+        amount: parseFloat(amount),
+        payment_method: 'cash',
+        notes: `Feeding fee for ${selectedDate}`
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      setMessage('Payment recorded successfully!');
-      setPaymentAmount('');
-      fetchStudentFees();
-      fetchFeeSummary();
-      fetchDashboard();
-      
+      setMessage(`Payment of ₵${amount} recorded successfully!`);
       setTimeout(() => setMessage(''), 3000);
+      
+      // Refresh collection
+      await fetchDailyCollection();
     } catch (error) {
       setError('Failed to record payment');
       setTimeout(() => setError(''), 3000);
@@ -119,188 +101,209 @@ function Fees() {
     }
   };
 
-  const getStatusBadge = (status) => {
-    const styles = {
-      paid: { background: '#2ecc71', color: 'white' },
-      partial: { background: '#f39c12', color: 'white' },
-      pending: { background: '#e74c3c', color: 'white' },
-      overdue: { background: '#c0392b', color: 'white' }
-    };
-    return (
-      <span style={{
-        ...styles[status],
-        padding: '0.25rem 0.75rem',
-        borderRadius: '20px',
-        fontSize: '0.75rem',
-        fontWeight: '600'
-      }}>
-        {status.toUpperCase()}
-      </span>
-    );
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Feeding Fee Collection Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            h1 { color: #1e3c72; text-align: center; }
+            h3 { text-align: center; color: #555; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+            th { background: #1e3c72; color: white; }
+            .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #888; }
+            .summary { margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 8px; }
+          </style>
+        </head>
+        <body>
+          <h1>🏫 Feeding Fee Collection Report</h1>
+          <h3>Class: ${getClassName(parseInt(selectedClass))}</h3>
+          <h3>Date: ${selectedDate}</h3>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Admission No</th>
+                <th>Student Name</th>
+                <th>Amount Paid (₵)</th>
+                <th>Receipt No</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${collection.collection.filter(s => s.paid).map((student, index) => `
+                <tr>
+                  <td>${index + 1}</td>
+                  <td>${student.admission_number}</td>
+                  <td>${student.full_name}</td>
+                  <td>${student.amount}</td>
+                  <td>${student.receipt_number || '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div class="summary">
+            <strong>Summary:</strong><br/>
+            Total Students in Class: ${collection.total_students}<br/>
+            Students Who Paid: ${collection.total_paid}<br/>
+            Total Collection: ₵${collection.total_collected}<br/>
+            Not Paid: ${collection.total_students - collection.total_paid}
+          </div>
+          
+          <div class="footer">
+            Printed on: ${new Date().toLocaleString()}<br/>
+            Generated by School Management System
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
   };
 
   const getClassName = (id) => {
     const cls = classLevels.find(c => c.id === id);
-    return cls ? cls.name : 'N/A';
+    return cls ? cls.name : 'Select Class';
   };
 
   return (
     <div className="container">
-      {/* Dashboard Cards */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <h3>₵{parseFloat(dashboard.total_collected).toLocaleString()}</h3>
-          <p>Total Fees Collected</p>
-        </div>
-        <div className="stat-card">
-          <h3>₵{parseFloat(dashboard.total_outstanding).toLocaleString()}</h3>
-          <p>Outstanding Balance</p>
-        </div>
-      </div>
-
       <div className="card">
-        <h2>💰 Feeding Fee Management</h2>
+        <h2>🍽️ Daily Feeding Fee Collection</h2>
         {message && <div className="success">{message}</div>}
         {error && <div className="error">{error}</div>}
 
-        {/* Class Filter */}
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ fontWeight: '600', display: 'block', marginBottom: '0.5rem' }}>Select Class:</label>
-          <select 
-            value={selectedClass} 
-            onChange={(e) => setSelectedClass(e.target.value)}
-            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px' }}
-          >
-            {classLevels.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Fee Summary Table */}
-        <h3>Fee Summary - {getClassName(parseInt(selectedClass))}</h3>
-        <div style={{ overflowX: 'auto', marginBottom: '2rem' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Admission No</th>
-                <th>Student Name</th>
-                <th>Total Fees (₵)</th>
-                <th>Paid (₵)</th>
-                <th>Balance (₵)</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {feeSummary.map(student => (
-                <tr key={student.id}>
-                  <td>{student.admission_number}</td>
-                  <td>{student.full_name}</td>
-                  <td>{parseFloat(student.total_fees).toLocaleString()}</td>
-                  <td>{parseFloat(student.total_paid).toLocaleString()}</td>
-                  <td>{parseFloat(student.total_balance).toLocaleString()}</td>
-                  <td>
-                    <button 
-                      onClick={() => setSelectedStudent(student.id)}
-                      style={{ padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}
-                    >
-                      View Details
-                    </button>
-                  </td>
-                </tr>
+        {/* Filters */}
+        <div style={{ 
+          display: 'flex', 
+          gap: '1rem', 
+          flexWrap: 'wrap', 
+          marginBottom: '1.5rem',
+          padding: '1rem',
+          background: '#f7fafc',
+          borderRadius: '12px'
+        }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontWeight: '600', display: 'block', marginBottom: '0.3rem' }}>Select Class:</label>
+            <select 
+              value={selectedClass} 
+              onChange={(e) => setSelectedClass(e.target.value)}
+              style={{ width: '100%', padding: '0.5rem', borderRadius: '8px' }}
+            >
+              {classLevels.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
-            </tbody>
-          </table>
+            </select>
+          </div>
+          
+          <div style={{ flex: 1 }}>
+            <label style={{ fontWeight: '600', display: 'block', marginBottom: '0.3rem' }}>Select Date:</label>
+            <input 
+              type="date" 
+              value={selectedDate} 
+              onChange={(e) => setSelectedDate(e.target.value)}
+              style={{ width: '100%', padding: '0.5rem', borderRadius: '8px' }}
+            />
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+            <button 
+              onClick={handlePrint}
+              style={{ background: '#2ecc71', padding: '0.5rem 1rem' }}
+            >
+              🖨️ Print Collection List
+            </button>
+          </div>
         </div>
 
-        {/* Student Fee Details */}
-        {selectedStudent && (
-          <div style={{ marginTop: '2rem', borderTop: '2px solid #eee', paddingTop: '1rem' }}>
-            <h3>Fee Details</h3>
-            {studentFees.map(fee => (
-              <div key={fee.id} style={{ 
-                border: '1px solid #ddd', 
-                borderRadius: '12px', 
-                padding: '1rem', 
-                marginBottom: '1rem',
-                background: '#f9f9f9'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                  <div>
-                    <strong>{fee.fee_name}</strong> - {fee.term} {fee.academic_year}
-                  </div>
-                  <div>{getStatusBadge(fee.status)}</div>
-                </div>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
-                  <div><strong>Total:</strong> ₵{parseFloat(fee.amount).toLocaleString()}</div>
-                  <div><strong>Paid:</strong> ₵{parseFloat(fee.amount_paid).toLocaleString()}</div>
-                  <div><strong>Balance:</strong> ₵{parseFloat(fee.balance).toLocaleString()}</div>
-                </div>
+        {/* Summary Stats */}
+        <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
+          <div className="stat-card">
+            <h3>{collection.total_students}</h3>
+            <p>Total Students</p>
+          </div>
+          <div className="stat-card">
+            <h3>{collection.total_paid}</h3>
+            <p>Paid Today</p>
+          </div>
+          <div className="stat-card">
+            <h3>₵{collection.total_collected}</h3>
+            <p>Total Collected</p>
+          </div>
+          <div className="stat-card">
+            <h3>{collection.total_students - collection.total_paid}</h3>
+            <p>Not Paid</p>
+          </div>
+        </div>
 
-                {/* Payment Form */}
-                {fee.status !== 'paid' && (
-                  <div style={{ 
-                    display: 'flex', 
-                    gap: '1rem', 
-                    alignItems: 'center', 
-                    flexWrap: 'wrap',
-                    marginTop: '1rem',
-                    paddingTop: '1rem',
-                    borderTop: '1px dashed #ddd'
-                  }}>
-                    <input
-                      type="number"
-                      placeholder="Amount (₵)"
-                      value={paymentAmount}
-                      onChange={(e) => setPaymentAmount(e.target.value)}
-                      style={{ width: '150px', padding: '0.5rem' }}
-                    />
-                    <select
-                      value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                      style={{ padding: '0.5rem', borderRadius: '8px' }}
-                    >
-                      <option value="cash">Cash</option>
-                      <option value="mobile_money">Mobile Money</option>
-                      <option value="bank_transfer">Bank Transfer</option>
-                      <option value="card">Card</option>
-                    </select>
-                    <button 
-                      onClick={() => handlePayment(fee.id)} 
-                      disabled={loading}
-                      style={{ background: '#2ecc71', padding: '0.5rem 1rem' }}
-                    >
-                      {loading ? 'Processing...' : 'Record Payment'}
-                    </button>
-                  </div>
-                )}
-
-                {/* Payment History */}
-                {fee.payments && fee.payments.length > 0 && (
-                  <div style={{ marginTop: '1rem' }}>
-                    <strong>Payment History:</strong>
-                    <div style={{ overflowX: 'auto', marginTop: '0.5rem' }}>
-                      <table style={{ fontSize: '0.8rem' }}>
-                        <thead>
-                          <tr><th>Date</th><th>Amount</th><th>Method</th><th>Receipt No</th></tr>
-                        </thead>
-                        <tbody>
-                          {fee.payments.map(p => (
-                            <tr key={p.id}>
-                              <td>{new Date(p.payment_date).toLocaleDateString()}</td>
-                              <td>₵{parseFloat(p.amount_paid).toLocaleString()}</td>
-                              <td>{p.payment_method?.toUpperCase()}</td>
-                              <td>{p.receipt_number}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+        {/* Collection Table */}
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '2rem' }}>Loading...</div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="fee-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Admission No</th>
+                  <th>Student Name</th>
+                  <th>Amount (₵)</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {collection.collection.map((student, index) => (
+                  <tr key={student.id} style={{ background: student.paid ? '#d4edda' : 'white' }}>
+                    <td>{index + 1}</td>
+                    <td>{student.admission_number}</td>
+                    <td><strong>{student.full_name}</strong></td>
+                    <td>
+                      {student.paid ? (
+                        <span style={{ color: '#2ecc71', fontWeight: 'bold' }}>₵{student.amount}</span>
+                      ) : (
+                        <input
+                          type="number"
+                          placeholder="Amount"
+                          value={amounts[student.id] || ''}
+                          onChange={(e) => handleAmountChange(student.id, e.target.value)}
+                          style={{ width: '100px', padding: '0.3rem' }}
+                          min="0"
+                          step="0.5"
+                        />
+                      )}
+                    </td>
+                    <td>
+                      {student.paid ? (
+                        <span className="status-present">PAID</span>
+                      ) : (
+                        <span className="status-absent">NOT PAID</span>
+                      )}
+                    </td>
+                    <td>
+                      {!student.paid && (
+                        <button 
+                          onClick={() => handleRecordPayment(student.id)} 
+                          disabled={loading}
+                          style={{ background: '#3498db', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}
+                        >
+                          Record Payment
+                        </button>
+                      )}
+                      {student.paid && (
+                        <span style={{ fontSize: '0.7rem', color: '#666' }}>
+                          Receipt: {student.receipt_number?.slice(-8)}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
