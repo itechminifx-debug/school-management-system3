@@ -26,7 +26,7 @@ function Dashboard() {
   const fetchClassLevels = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.get('http://localhost:5000/api/class-levels', {
+      const response = await axios.post('https://school-management-api-5mml.onrender.com/api/auth/login', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setClassLevels(response.data.classLevels);

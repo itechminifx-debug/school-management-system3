@@ -13,7 +13,7 @@ function Login({ onLogin }) {
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/login', {
+      const response = await axios.post('https://school-management-api-5mml.onrender.com/api/auth/login', {
         email,
         password
       });
