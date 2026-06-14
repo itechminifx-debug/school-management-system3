@@ -109,6 +109,14 @@ function AddStudent() {
           >
             <option value="">Select Class Level</option>
             
+            {nurseryClasses.length > 0 && (
+              <optgroup label="🍼 NURSERY">
+                {nurseryClasses.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </optgroup>
+            )}
+            
             {kindergartenClasses.length > 0 && (
               <optgroup label="🎨 KINDERGARTEN">
                 {kindergartenClasses.map(c => (
