@@ -27,7 +27,7 @@ function Navigation({ onLogout }) {
         <Link to="/students" className={isActive('/students')}>👥 Students</Link>
         <Link to="/add-student" className={isActive('/add-student')}>➕ Add Student</Link>
         <Link to="/attendance" className={isActive('/attendance')}>📋 Attendance</Link>
-         <Link to="/school-fees">🏫 School Fees</Link>
+        <Link to="/school-fees">🏫 School Fees</Link>
         <Link to="/fees">💰 Fees</Link>
         <Link to="/advance-payment">💰 Advance Payment</Link>
         <Link to="/grades" className={isActive('/grades')}>🎓 Grades</Link>
