@@ -15,37 +15,46 @@ function Attendance() {
 
   useEffect(() => {
     fetchClassLevels();
-    fetchStudents();
+    fetchAllStudents();
   }, []);
 
   useEffect(() => {
-    if (students.length > 0) {
-      filterStudentsByClass();
+    if (selectedClass && students.length > 0) {
+      const filtered = students.filter(s => s.class_level_id === parseInt(selectedClass));
+      setFilteredStudents(filtered);
+    } else {
+      setFilteredStudents([]);
     }
   }, [selectedClass, students]);
 
   useEffect(() => {
     if (filteredStudents.length > 0) {
       fetchTodayAttendance();
+    } else {
+      setSavedAttendance([]);
+      setAttendance({});
     }
   }, [date, filteredStudents]);
 
   const fetchClassLevels = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.get('http://localhost:5000/api/class-levels', {
+      const response = await axios.get('https://school-management-api-5mml.onrender.com/api/class-levels', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setClassLevels(response.data.classLevels);
+      if (response.data.classLevels.length > 0) {
+        setSelectedClass(response.data.classLevels[0].id.toString());
+      }
     } catch (error) {
       console.error('Error fetching class levels:', error);
     }
   };
 
-  const fetchStudents = async () => {
+  const fetchAllStudents = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.get('http://localhost:5000/api/students', {
+      const response = await axios.get('https://school-management-api-5mml.onrender.com/api/students', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setStudents(response.data.students);
@@ -56,27 +65,14 @@ function Attendance() {
     }
   };
 
-  const filterStudentsByClass = () => {
-    if (selectedClass) {
-      setFilteredStudents(students.filter(s => s.class_level_id === parseInt(selectedClass)));
-    } else if (classLevels.length > 0) {
-      // Default to first class if none selected
-      setSelectedClass(classLevels[0].id.toString());
-      setFilteredStudents(students.filter(s => s.class_level_id === classLevels[0].id));
-    } else {
-      setFilteredStudents(students);
-    }
-  };
-
   const fetchTodayAttendance = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.get(`http://localhost:5000/api/attendance/date/${date}`, {
+      const response = await axios.get(`https://school-management-api-5mml.onrender.com/api/attendance/date/${date}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       const allAttendance = response.data.attendance;
-      // Filter attendance for current class
       const classAttendance = allAttendance.filter(record => 
         filteredStudents.some(s => s.id === record.student_id)
       );
@@ -115,7 +111,7 @@ function Attendance() {
 
     try {
       const promises = Object.entries(attendance).map(([studentId, status]) =>
-        axios.post('http://localhost:5000/api/attendance', 
+        axios.post('https://school-management-api-5mml.onrender.com/api/attendance', 
           { student_id: parseInt(studentId), date, status },
           { headers: { Authorization: `Bearer ${token}` } }
         )
@@ -125,7 +121,6 @@ function Attendance() {
       setMessage('Attendance saved successfully!');
       setTimeout(() => setMessage(''), 3000);
       await fetchTodayAttendance();
-      
     } catch (error) {
       console.error('Error saving attendance:', error);
       setMessage('Error saving attendance');
@@ -141,7 +136,7 @@ function Attendance() {
 
   const getClassName = (classLevelId) => {
     const classLevel = classLevels.find(c => c.id === classLevelId);
-    return classLevel ? classLevel.name : 'N/A';
+    return classLevel ? classLevel.name : 'Select Class';
   };
 
   if (loading) {
@@ -161,7 +156,7 @@ function Attendance() {
               <select 
                 value={selectedClass} 
                 onChange={(e) => setSelectedClass(e.target.value)}
-                style={{ padding: '0.5rem', borderRadius: '8px' }}
+                style={{ padding: '0.5rem', borderRadius: '8px', minWidth: '150px' }}
               >
                 {classLevels.map(classLevel => (
                   <option key={classLevel.id} value={classLevel.id}>
@@ -187,47 +182,57 @@ function Attendance() {
             </div>
           </div>
           
-          <div style={{ overflowX: 'auto' }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Admission No</th>
-                  <th>Student Name</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredStudents.map(student => (
-                  <tr key={student.id}>
-                    <td>{student.admission_number}</td>
-                    <td><strong>{student.full_name}</strong></td>
-                    <td>
-                      <select 
-                        onChange={(e) => handleStatusChange(student.id, e.target.value)} 
-                        value={attendance[student.id] || 'present'}
-                        style={{ padding: '0.5rem', borderRadius: '8px', cursor: 'pointer' }}
-                      >
-                        <option value="present">✅ Present</option>
-                        <option value="absent">❌ Absent</option>
-                        <option value="late">⏰ Late</option>
-                        <option value="excused">📝 Excused</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {filteredStudents.length === 0 && (
+            <div className="error" style={{ textAlign: 'center', marginBottom: '1rem' }}>
+              No students found in {getClassName(parseInt(selectedClass))}.
+            </div>
+          )}
           
-          <button type="submit" disabled={saving}>
-            {saving ? 'Saving...' : '💾 Save Attendance'}
-          </button>
+          {filteredStudents.length > 0 && (
+            <>
+              <div style={{ overflowX: 'auto' }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Admission No</th>
+                      <th>Student Name</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredStudents.map(student => (
+                      <tr key={student.id}>
+                        <td>{student.admission_number}</td>
+                        <td><strong>{student.full_name}</strong></td>
+                        <td>
+                          <select 
+                            onChange={(e) => handleStatusChange(student.id, e.target.value)} 
+                            value={attendance[student.id] || 'present'}
+                            style={{ padding: '0.5rem', borderRadius: '8px', cursor: 'pointer' }}
+                          >
+                            <option value="present">✅ Present</option>
+                            <option value="absent">❌ Absent</option>
+                            <option value="late">⏰ Late</option>
+                            <option value="excused">📝 Excused</option>
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              <button type="submit" disabled={saving} style={{ marginTop: '1.5rem' }}>
+                {saving ? 'Saving...' : '💾 Save Attendance'}
+              </button>
+            </>
+          )}
         </form>
       </div>
 
       {savedAttendance.length > 0 && (
         <div className="card">
-          <h3>📊 Attendance Summary for {date} - {getClassName(parseInt(selectedClass))}</h3>
+          <h3>📊 Attendance Summary for {date}</h3>
           
           <div className="stats-grid">
             <div className="stat-card">
