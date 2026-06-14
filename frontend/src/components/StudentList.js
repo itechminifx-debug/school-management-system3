@@ -7,7 +7,7 @@ function StudentList() {
   const [classLevels, setClassLevels] = useState([]);
   const [selectedClass, setSelectedClass] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     fetchClassLevels();
@@ -15,9 +15,10 @@ function StudentList() {
   }, []);
 
   useEffect(() => {
-    if (selectedClass) {
-      setFilteredStudents(students.filter(s => s.class_level_id === parseInt(selectedClass)));
-    } else {
+    if (selectedClass && students.length > 0) {
+      const filtered = students.filter(s => s.class_level_id === parseInt(selectedClass));
+      setFilteredStudents(filtered);
+    } else if (students.length > 0) {
       setFilteredStudents(students);
     }
   }, [selectedClass, students]);
@@ -25,10 +26,13 @@ function StudentList() {
   const fetchClassLevels = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.get('http://localhost:5000/api/class-levels', {
+      const response = await axios.get('https://school-management-api-5mml.onrender.com/api/class-levels', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setClassLevels(response.data.classLevels);
+      if (response.data.classLevels.length > 0) {
+        setSelectedClass(response.data.classLevels[0].id.toString());
+      }
     } catch (error) {
       console.error('Error fetching class levels:', error);
     }
@@ -37,14 +41,13 @@ function StudentList() {
   const fetchStudents = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.get('http://localhost:5000/api/students', {
+      const response = await axios.get('https://school-management-api-5mml.onrender.com/api/students', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setStudents(response.data.students);
-      setFilteredStudents(response.data.students);
-      setError('');
+      setErrorMsg('');
     } catch (err) {
-      setError('Failed to load students');
+      setErrorMsg('Failed to load students');
     } finally {
       setLoading(false);
     }
@@ -55,7 +58,7 @@ function StudentList() {
     
     const token = localStorage.getItem('token');
     try {
-      await axios.delete(`http://localhost:5000/api/students/${id}`, {
+      await axios.delete(`https://school-management-api-5mml.onrender.com/api/students/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchStudents();
@@ -66,7 +69,7 @@ function StudentList() {
 
   const getClassName = (classLevelId) => {
     const classLevel = classLevels.find(c => c.id === classLevelId);
-    return classLevel ? classLevel.name : 'N/A';
+    return classLevel ? classLevel.name : 'Not Assigned';
   };
 
   if (loading) return <div className="container">Loading students...</div>;
@@ -76,7 +79,6 @@ function StudentList() {
       <div className="card">
         <h2>📚 Student List</h2>
         
-        {/* Class Filter Dropdown */}
         <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <label style={{ fontWeight: '600' }}>Filter by Class:</label>
           <select 
@@ -84,7 +86,6 @@ function StudentList() {
             onChange={(e) => setSelectedClass(e.target.value)}
             style={{ padding: '0.5rem 1rem', borderRadius: '8px', minWidth: '200px' }}
           >
-            <option value="">All Classes</option>
             {classLevels.map(classLevel => (
               <option key={classLevel.id} value={classLevel.id}>
                 {classLevel.name}
@@ -96,6 +97,8 @@ function StudentList() {
             Total: {filteredStudents.length} student(s)
           </div>
         </div>
+        
+        {errorMsg && <div className="error">{errorMsg}</div>}
         
         {filteredStudents.length === 0 ? (
           <p>No students found in this class. Click "Add Student" to add students.</p>
