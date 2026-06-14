@@ -50,6 +50,8 @@ const gradeRoutes = require('./routes/grade.routes');
 const classLevelRoutes = require('./routes/classLevel.routes');
 const subjectRoutes = require('./routes/subject.routes');
 const feeRoutes = require('./routes/fee.routes');
+const schoolFeesRoutes = require('./routes/schoolFees.routes');
+
 // Use routes
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
@@ -58,6 +60,7 @@ app.use('/api/grades', gradeRoutes);
 app.use('/api/class-levels', classLevelRoutes);
 app.use('/api/subjects', subjectRoutes);
 app.use('/api/fees', feeRoutes);
+app.use('/api/school-fees', schoolFeesRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
