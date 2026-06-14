@@ -175,5 +175,76 @@ router.get('/print/:date/:classLevelId', authenticateToken, async (req, res) => 
         res.status(500).json({ message: 'Failed to fetch print data' });
     }
 });
+// Delete a payment (undo)
+router.delete('/payment/:paymentId', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+    const pool = getDb(req);
+    const paymentId = req.params.paymentId;
+    
+    try {
+        // Get the payment details first
+        const paymentResult = await pool.query(
+            `SELECT * FROM daily_feeding_fees WHERE id = $1`,
+            [paymentId]
+        );
+        
+        if (paymentResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Payment not found' });
+        }
+        
+        const payment = paymentResult.rows[0];
+        const paymentDate = payment.payment_date.toISOString().split('T')[0];
+        
+        // Delete the payment
+        await pool.query(
+            `DELETE FROM daily_feeding_fees WHERE id = $1`,
+            [paymentId]
+        );
+        
+        // Update daily summary for that class
+        await pool.query(
+            `INSERT INTO daily_collection_summary (collection_date, class_level_id, total_students, total_collected)
+             SELECT $1, s.class_level_id, COUNT(DISTINCT d.student_id), COALESCE(SUM(d.amount), 0)
+             FROM daily_feeding_fees d
+             JOIN students s ON d.student_id = s.id
+             WHERE d.payment_date = $1
+             GROUP BY s.class_level_id
+             ON CONFLICT (collection_date, class_level_id)
+             DO UPDATE SET 
+                total_students = EXCLUDED.total_students,
+                total_collected = EXCLUDED.total_collected`,
+            [paymentDate]
+        );
+        
+        res.json({ message: 'Payment deleted successfully (undone)' });
+    } catch (error) {
+        console.error('Error deleting payment:', error);
+        res.status(500).json({ message: 'Failed to delete payment' });
+    }
+});
+
+// Get recent payments (for undo list)
+router.get('/recent', authenticateToken, async (req, res) => {
+    const pool = getDb(req);
+    const schoolId = req.user.schoolId;
+    const limit = req.query.limit || 20;
+    
+    try {
+        const result = await pool.query(
+            `SELECT d.*, s.full_name, s.admission_number, c.name as class_name
+             FROM daily_feeding_fees d
+             JOIN students s ON d.student_id = s.id
+             JOIN class_levels c ON s.class_level_id = c.id
+             WHERE s.school_id = $1
+             ORDER BY d.created_at DESC
+             LIMIT $2`,
+            [schoolId, limit]
+        );
+        
+        res.json({ recent_payments: result.rows });
+    } catch (error) {
+        console.error('Error fetching recent payments:', error);
+        res.status(500).json({ message: 'Failed to fetch recent payments' });
+    }
+});
 
 module.exports = router;
