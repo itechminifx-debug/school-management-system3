@@ -9,6 +9,7 @@ import Grades from './components/Grades';
 import ReportCard from './components/ReportCard';
 import Fees from './components/Fees';
 import AdvancePayment from './components/AdvancePayment';
+import SchoolFees from './components/SchoolFees';
 import './App.css';
 
 function Navigation({ onLogout }) {
@@ -26,6 +27,7 @@ function Navigation({ onLogout }) {
         <Link to="/students" className={isActive('/students')}>👥 Students</Link>
         <Link to="/add-student" className={isActive('/add-student')}>➕ Add Student</Link>
         <Link to="/attendance" className={isActive('/attendance')}>📋 Attendance</Link>
+         <Link to="/school-fees">🏫 School Fees</Link>
         <Link to="/fees">💰 Fees</Link>
         <Link to="/advance-payment">💰 Advance Payment</Link>
         <Link to="/grades" className={isActive('/grades')}>🎓 Grades</Link>
@@ -88,6 +90,9 @@ function App() {
           } />
           <Route path="/advance-payment" element={
             isAuthenticated ? <AdvancePayment /> : <Navigate to="/login" />
+          } />
+          <Route path="/school-fees" element={
+            isAuthenticated ? <SchoolFees /> : <Navigate to="/login" />
           } />
           <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
