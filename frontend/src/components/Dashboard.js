@@ -12,50 +12,42 @@ function Dashboard() {
   const [recentStudents, setRecentStudents] = useState([]);
   const [todayAttendance, setTodayAttendance] = useState([]);
   const [user, setUser] = useState(null);
-  const [classLevels, setClassLevels] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (userData) {
       setUser(JSON.parse(userData));
     }
-    fetchClassLevels();
     fetchDashboardData();
   }, []);
 
-  const fetchClassLevels = async () => {
-    const token = localStorage.getItem('token');
-    try {
-      const response = await axios.post('https://school-management-api-5mml.onrender.com/api/auth/login', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setClassLevels(response.data.classLevels);
-    } catch (error) {
-      console.error('Error fetching class levels:', error);
-    }
-  };
-
-  const getClassName = (classLevelId) => {
-    if (!classLevelId) return 'Not Assigned';
-    const classLevel = classLevels.find(c => c.id === classLevelId);
-    return classLevel ? classLevel.name : 'Unknown';
-  };
-
   const fetchDashboardData = async () => {
+    setLoading(true);
     const token = localStorage.getItem('token');
+    
+    if (!token) {
+      setError('Please login again');
+      setLoading(false);
+      return;
+    }
+
     const config = { headers: { Authorization: `Bearer ${token}` } };
+    const apiUrl = process.env.REACT_APP_API_URL || 'https://school-management-api-5mml.onrender.com';
 
     try {
-      // Fetch students
-      const studentsRes = await axios.get('http://localhost:5000/api/students', config);
-      const totalStudents = studentsRes.data.students.length;
-      setRecentStudents(studentsRes.data.students.slice(0, 5));
+      // Fetch all students
+      const studentsRes = await axios.get(`${apiUrl}/api/students`, config);
+      const allStudents = studentsRes.data.students || [];
+      const totalStudents = allStudents.length;
+      setRecentStudents(allStudents.slice(0, 5));
 
       // Fetch today's attendance
       const today = new Date().toISOString().split('T')[0];
       try {
-        const attendanceRes = await axios.get(`http://localhost:5000/api/attendance/date/${today}`, config);
-        const attendance = attendanceRes.data.attendance;
+        const attendanceRes = await axios.get(`${apiUrl}/api/attendance/date/${today}`, config);
+        const attendance = attendanceRes.data.attendance || [];
         setTodayAttendance(attendance);
         
         const presentCount = attendance.filter(a => a.status === 'present').length;
@@ -71,6 +63,7 @@ function Dashboard() {
           attendanceRate
         });
       } catch (attError) {
+        console.log('No attendance records for today');
         setStats({
           totalStudents,
           totalPresent: 0,
@@ -81,12 +74,39 @@ function Dashboard() {
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      setError('Failed to load dashboard data. Please refresh the page.');
+    } finally {
+      setLoading(false);
     }
   };
 
   const getStatusClass = (status) => {
     return `status-${status}`;
   };
+
+  const getClassName = (classLevelId) => {
+    // This will be populated if you have class levels data
+    const classMap = {
+      4: 'KG 1', 5: 'KG 2', 6: 'Basic 1', 7: 'Basic 2', 8: 'Basic 3',
+      9: 'Basic 4', 10: 'Basic 5', 11: 'Basic 6', 12: 'JHS 1', 13: 'JHS 2', 14: 'JHS 3'
+    };
+    return classMap[classLevelId] || 'N/A';
+  };
+
+  if (loading) {
+    return <div className="container">Loading dashboard data...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="container">
+        <div className="card">
+          <div className="error">{error}</div>
+          <button onClick={() => window.location.reload()}>Retry</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container">
@@ -122,12 +142,12 @@ function Dashboard() {
 
       {/* Today's Attendance List */}
       <div className="card">
-        <h3>📊 Today's Attendance List</h3>
+        <h3>📊 Today's Attendance List - {new Date().toLocaleDateString()}</h3>
         {todayAttendance.length === 0 ? (
           <p>No attendance recorded for today. Go to Attendance page to mark attendance.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table>
+            <table className="attendance-table">
               <thead>
                 <tr>
                   <th>Student Name</th>
@@ -147,7 +167,7 @@ function Dashboard() {
                         {record.status.toUpperCase()}
                       </span>
                     </td>
-                  </tr>
+                  </table>
                 ))}
               </tbody>
             </table>
@@ -155,7 +175,7 @@ function Dashboard() {
         )}
       </div>
 
-      {/* Recently Enrolled Students with Class Column */}
+      {/* Recently Enrolled Students */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
           <h3 style={{ marginBottom: 0 }}>📋 Recently Enrolled Students</h3>
@@ -173,7 +193,7 @@ function Dashboard() {
           <p>No students added yet. Click "Add Student" to get started.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table>
+            <table className="student-table">
               <thead>
                 <tr>
                   <th>Admission No</th>
@@ -194,8 +214,7 @@ function Dashboard() {
                         color: 'white', 
                         padding: '0.2rem 0.6rem', 
                         borderRadius: '20px',
-                        fontSize: '0.8rem',
-                        fontWeight: '600'
+                        fontSize: '0.8rem'
                       }}>
                         {getClassName(student.class_level_id)}
                       </span>
