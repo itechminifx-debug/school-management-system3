@@ -7,6 +7,7 @@ import AddStudent from './components/AddStudent';
 import Attendance from './components/Attendance';
 import Grades from './components/Grades';
 import ReportCard from './components/ReportCard';
+import Fees from './components/Fees';
 import './App.css';
 
 function Navigation({ onLogout }) {
@@ -24,6 +25,7 @@ function Navigation({ onLogout }) {
         <Link to="/students" className={isActive('/students')}>👥 Students</Link>
         <Link to="/add-student" className={isActive('/add-student')}>➕ Add Student</Link>
         <Link to="/attendance" className={isActive('/attendance')}>📋 Attendance</Link>
+        <Link to="/fees">💰 Fees</Link>
         <Link to="/grades" className={isActive('/grades')}>🎓 Grades</Link>
         <Link to="/report-card" className={isActive('/report-card')}>📄 Report Card</Link>
         <button onClick={onLogout} className="logout-btn">🚪 Logout</button>
@@ -78,6 +80,9 @@ function App() {
           } />
           <Route path="/report-card" element={
             isAuthenticated ? <ReportCard /> : <Navigate to="/login" />
+          } />
+         <Route path="/fees" element={
+            isAuthenticated ? <Fees /> : <Navigate to="/login" />
           } />
           <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
