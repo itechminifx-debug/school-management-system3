@@ -40,7 +40,7 @@ function SchoolFees() {
         setSelectedClass(response.data.classLevels[0].id.toString());
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching class levels:', error);
     }
   };
 
@@ -54,7 +54,7 @@ function SchoolFees() {
       setFeeData(response.data);
       setError('');
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching fee summary:', error);
       setError('Failed to load fee data');
     } finally {
       setLoading(false);
@@ -71,7 +71,7 @@ function SchoolFees() {
       setStudentHistory(response.data);
       setShowHistory(true);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching student history:', error);
       setError('Failed to load student history');
     } finally {
       setLoading(false);
@@ -99,13 +99,13 @@ function SchoolFees() {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      setMessage(`✅ Payment of ₵${paymentAmount} recorded successfully for ${selectedStudent.full_name}!`);
+      setMessage(`Payment of ₵${paymentAmount} recorded successfully for ${selectedStudent.full_name}!`);
       setPaymentAmount('');
       setShowPaymentModal(false);
       setSelectedStudent(null);
       fetchFeeSummary();
       setTimeout(() => setMessage(''), 3000);
-    } catch (error) {
+    } catch (err) {
       setError('Failed to record payment');
       setTimeout(() => setError(''), 3000);
     } finally {
@@ -114,7 +114,7 @@ function SchoolFees() {
   };
 
   const handleUndoPayment = async (paymentId, studentName, amount) => {
-    if (!window.confirm(`⚠️ UNDO PAYMENT\n\nUndo payment of ₵${amount} for ${studentName}? This action cannot be undone.`)) {
+    if (!window.confirm(`Undo payment of ₵${amount} for ${studentName}? This action cannot be undone.`)) {
       return;
     }
 
@@ -126,13 +126,13 @@ function SchoolFees() {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      setMessage(`↶ Payment of ₵${amount} for ${studentName} has been undone!`);
+      setMessage(`Payment of ₵${amount} for ${studentName} has been undone!`);
       fetchFeeSummary();
       if (showHistory) {
         fetchStudentHistory(selectedStudent);
       }
       setTimeout(() => setMessage(''), 3000);
-    } catch (error) {
+    } catch (err) {
       setError('Failed to undo payment');
       setTimeout(() => setError(''), 3000);
     } finally {
@@ -148,7 +148,7 @@ function SchoolFees() {
   return (
     <div className="container">
       <div className="card">
-        <h2>🏫 School Fees Management</h2>
+        <h2>School Fees Management</h2>
         {message && <div className="success">{message}</div>}
         {error && <div className="error">{error}</div>}
 
@@ -198,11 +198,11 @@ function SchoolFees() {
             </div>
             <div className="stat-card">
               <h3>{feeData.paid_count}</h3>
-              <p>Paid ✓</p>
+              <p>Paid</p>
             </div>
             <div className="stat-card">
               <h3>{feeData.not_paid_count}</h3>
-              <p>Not Paid ✗</p>
+              <p>Not Paid</p>
             </div>
             <div className="stat-card">
               <h3>₵{feeData.total_collected?.toLocaleString()}</h3>
@@ -224,7 +224,7 @@ function SchoolFees() {
                   <th style={{ padding: '10px', textAlign: 'left' }}>Amount Paid</th>
                   <th style={{ padding: '10px', textAlign: 'left' }}>Status</th>
                   <th style={{ padding: '10px', textAlign: 'center' }}>Actions</th>
-                <tr>
+                </tr>
               </thead>
               <tbody>
                 {feeData.students.map(student => (
@@ -236,9 +236,9 @@ function SchoolFees() {
                     </td>
                     <td style={{ padding: '8px' }}>
                       {student.has_paid ? (
-                        <span style={{ background: '#2ecc71', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px' }}>✓ PAID</span>
+                        <span style={{ background: '#2ecc71', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px' }}>PAID</span>
                       ) : (
-                        <span style={{ background: '#e74c3c', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px' }}>✗ NOT PAID</span>
+                        <span style={{ background: '#e74c3c', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px' }}>NOT PAID</span>
                       )}
                     </td>
                     <td style={{ padding: '8px', textAlign: 'center' }}>
@@ -251,14 +251,14 @@ function SchoolFees() {
                           }}
                           style={{ background: '#3498db', padding: '4px 12px', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '5px' }}
                         >
-                          💰 Pay
+                          Pay
                         </button>
                       ) : (
                         <button 
                           onClick={() => handleUndoPayment(student.payment_id, student.full_name, student.amount_paid)}
                           style={{ background: '#e74c3c', padding: '4px 12px', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '5px' }}
                         >
-                          ↶ Undo
+                          Undo
                         </button>
                       )}
                       <button 
@@ -268,7 +268,7 @@ function SchoolFees() {
                         }}
                         style={{ background: '#95a5a6', padding: '4px 12px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                       >
-                        📜 History
+                        History
                       </button>
                     </td>
                   </tr>
@@ -312,8 +312,8 @@ function SchoolFees() {
               </div>
               
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                <button onClick={() => { setShowPaymentModal(false); setSelectedStudent(null); }} style={{ background: '#95a5a6' }}>Cancel</button>
-                <button onClick={handleRecordPayment} style={{ background: '#2ecc71' }}>Record Payment</button>
+                <button onClick={() => { setShowPaymentModal(false); setSelectedStudent(null); }} style={{ background: '#95a5a6', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
+                <button onClick={handleRecordPayment} style={{ background: '#2ecc71', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Record Payment</button>
               </div>
             </div>
           </div>
@@ -353,7 +353,7 @@ function SchoolFees() {
               )}
               
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
-                <button onClick={() => { setShowHistory(false); setStudentHistory(null); }} style={{ background: '#95a5a6' }}>Close</button>
+                <button onClick={() => { setShowHistory(false); setStudentHistory(null); }} style={{ background: '#95a5a6', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Close</button>
               </div>
             </div>
           </div>
