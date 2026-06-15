@@ -29,7 +29,7 @@ function Navigation({ onLogout }) {
         <Link to="/attendance" className={isActive('/attendance')}>📋 Attendance</Link>
         <Link to="/grades" className={isActive('/grades')}>🎓 Grades</Link>
         <Link to="/report-card" className={isActive('/report-card')}>📄 Report Card</Link>
-        <Link to="/fees" className={isActive('/fees')}>🍽️ Fees</Link>
+        <Link to="/fees" className={isActive('/fees')}>🍽️ Daily Fees</Link>
         <Link to="/advance-payment" className={isActive('/advance-payment')}>💰 Advance Payment</Link>
         <Link to="/school-fees" className={isActive('/school-fees')}>🏫 School Fees</Link>
         <button onClick={onLogout} className="logout-btn">🚪 Logout</button>
