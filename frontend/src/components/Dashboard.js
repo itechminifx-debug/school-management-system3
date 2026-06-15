@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
 
 function Dashboard() {
   const [stats, setStats] = useState({
@@ -34,6 +33,8 @@ function Dashboard() {
     setLoading(true);
     const token = localStorage.getItem('token');
     
+    console.log('Fetching dashboard data...', token ? 'Token exists' : 'No token');
+    
     if (!token) {
       setError('Please login again');
       setLoading(false);
@@ -44,13 +45,17 @@ function Dashboard() {
 
     try {
       // Fetch all students
+      console.log('Fetching students from:', `${apiUrl}/api/students`);
       const studentsRes = await axios.get(`${apiUrl}/api/students`, config);
       const allStudents = studentsRes.data.students || [];
       const totalStudents = allStudents.length;
       setRecentStudents(allStudents.slice(0, 5));
+      console.log('Total students:', totalStudents);
 
       // Fetch today's attendance
       const today = new Date().toISOString().split('T')[0];
+      console.log('Fetching attendance for date:', today);
+      
       try {
         const attendanceRes = await axios.get(`${apiUrl}/api/attendance/date/${today}`, config);
         const attendance = attendanceRes.data.attendance || [];
@@ -61,6 +66,8 @@ function Dashboard() {
         const lateCount = attendance.filter(a => a.status === 'late').length;
         const attendanceRate = totalStudents > 0 ? ((presentCount / totalStudents) * 100).toFixed(1) : 0;
         
+        console.log('Attendance stats:', { presentCount, absentCount, lateCount, attendanceRate });
+        
         setStats({
           totalStudents,
           totalPresent: presentCount,
@@ -69,7 +76,7 @@ function Dashboard() {
           attendanceRate
         });
       } catch (attError) {
-        console.log('No attendance records for today');
+        console.log('No attendance records for today:', attError.message);
         setStats({
           totalStudents,
           totalPresent: 0,
@@ -80,7 +87,7 @@ function Dashboard() {
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      setError('Failed to load dashboard data. Please refresh the page.');
+      setError('Failed to load dashboard data. ' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -92,6 +99,7 @@ function Dashboard() {
 
   const getClassName = (classLevelId) => {
     const classMap = {
+      1: 'Crèche', 2: 'Nursery 1', 3: 'Nursery 2',
       4: 'KG 1', 5: 'KG 2', 6: 'Basic 1', 7: 'Basic 2', 8: 'Basic 3',
       9: 'Basic 4', 10: 'Basic 5', 11: 'Basic 6', 12: 'JHS 1', 13: 'JHS 2', 14: 'JHS 3'
     };
@@ -115,7 +123,6 @@ function Dashboard() {
 
   return (
     <div className="container">
-      {/* Welcome Card */}
       {user && (
         <div className="card" style={{ textAlign: 'center', background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)', color: 'white' }}>
           <h2 style={{ color: 'white', borderLeftColor: 'white' }}>Welcome back, {user.full_name}! 👋</h2>
@@ -123,39 +130,7 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Quick Action Buttons */}
-      <div className="stats-grid" style={{ marginBottom: '2rem' }}>
-        <Link to="/students" className="stat-card" style={{ textDecoration: 'none', display: 'block' }}>
-          <h3>👥</h3>
-          <p>Manage Students</p>
-        </Link>
-        <Link to="/attendance" className="stat-card" style={{ textDecoration: 'none', display: 'block' }}>
-          <h3>📋</h3>
-          <p>Mark Attendance</p>
-        </Link>
-        <Link to="/fees" className="stat-card" style={{ textDecoration: 'none', display: 'block' }}>
-          <h3>🍽️</h3>
-          <p>Daily Fees</p>
-        </Link>
-        <Link to="/advance-payment" className="stat-card" style={{ textDecoration: 'none', display: 'block' }}>
-          <h3>💰</h3>
-          <p>Advance Payment</p>
-        </Link>
-        <Link to="/school-fees" className="stat-card" style={{ textDecoration: 'none', display: 'block' }}>
-          <h3>🏫</h3>
-          <p>School Fees</p>
-        </Link>
-        <Link to="/grades" className="stat-card" style={{ textDecoration: 'none', display: 'block' }}>
-          <h3>🎓</h3>
-          <p>Grades</p>
-        </Link>
-        <Link to="/report-card" className="stat-card" style={{ textDecoration: 'none', display: 'block' }}>
-          <h3>📄</h3>
-          <p>Report Cards</p>
-        </Link>
-      </div>
-
-      {/* Statistics Cards */}
+      {/* Statistics Cards - These should always show numbers */}
       <div className="stats-grid">
         <div className="stat-card">
           <h3>{stats.totalStudents}</h3>
@@ -183,25 +158,25 @@ function Dashboard() {
       <div className="card">
         <h3>📊 Today's Attendance List - {new Date().toLocaleDateString()}</h3>
         {todayAttendance.length === 0 ? (
-          <p>No attendance recorded for today. Go to Attendance page to mark attendance.</p>
+          <p>No attendance recorded for today. Go to the Attendance page to mark attendance.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table className="attendance-table">
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr>
-                  <th>Student Name</th>
-                  <th>Admission No</th>
-                  <th>Class</th>
-                  <th>Status</th>
+                <tr style={{ background: '#1e3c72', color: 'white' }}>
+                  <th style={{ padding: '10px', textAlign: 'left' }}>Student Name</th>
+                  <th style={{ padding: '10px', textAlign: 'left' }}>Admission No</th>
+                  <th style={{ padding: '10px', textAlign: 'left' }}>Class</th>
+                  <th style={{ padding: '10px', textAlign: 'left' }}>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {todayAttendance.map(record => (
-                  <tr key={record.id}>
-                    <td><strong>{record.full_name}</strong></td>
-                    <td>{record.admission_number}</td>
-                    <td>{getClassName(record.class_level_id)}</td>
-                    <td><span className={getStatusClass(record.status)}>{record.status.toUpperCase()}</span></td>
+                  <tr key={record.id} style={{ borderBottom: '1px solid #ddd' }}>
+                    <td style={{ padding: '8px' }}><strong>{record.full_name}</strong></td>
+                    <td style={{ padding: '8px' }}>{record.admission_number}</td>
+                    <td style={{ padding: '8px' }}>{getClassName(record.class_level_id)}</td>
+                    <td style={{ padding: '8px' }}><span className={getStatusClass(record.status)}>{record.status.toUpperCase()}</span></td>
                   </tr>
                 ))}
               </tbody>
@@ -214,32 +189,30 @@ function Dashboard() {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
           <h3 style={{ marginBottom: 0 }}>📋 Recently Enrolled Students</h3>
-          <button onClick={() => window.print()} style={{ background: 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)', padding: '0.5rem 1rem' }}>
-            🖨️ Print Student List
+          <button onClick={() => window.print()} style={{ background: '#2ecc71', padding: '0.5rem 1rem', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
+            🖨️ Print List
           </button>
         </div>
         {recentStudents.length === 0 ? (
           <p>No students added yet. Click "Add Student" to get started.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table className="student-table">
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr>
-                  <th>Admission No</th>
-                  <th>Student Name</th>
-                  <th>Class</th>
-                  <th>Parent Contact</th>
-                  <th>Address</th>
+                <tr style={{ background: '#1e3c72', color: 'white' }}>
+                  <th style={{ padding: '10px', textAlign: 'left' }}>Admission No</th>
+                  <th style={{ padding: '10px', textAlign: 'left' }}>Student Name</th>
+                  <th style={{ padding: '10px', textAlign: 'left' }}>Class</th>
+                  <th style={{ padding: '10px', textAlign: 'left' }}>Parent Contact</th>
                 </tr>
               </thead>
               <tbody>
                 {recentStudents.map(student => (
-                  <tr key={student.id}>
-                    <td><strong>{student.admission_number}</strong></td>
-                    <td>{student.full_name}</td>
-                    <td><span style={{ background: '#667eea', color: 'white', padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.8rem' }}>{getClassName(student.class_level_id)}</span></td>
-                    <td>{student.parent_phone || '-'}</td>
-                    <td>{student.address || '-'}</td>
+                  <tr key={student.id} style={{ borderBottom: '1px solid #ddd' }}>
+                    <td style={{ padding: '8px' }}>{student.admission_number}</td>
+                    <td style={{ padding: '8px' }}>{student.full_name}</td>
+                    <td style={{ padding: '8px' }}>{getClassName(student.class_level_id)}</td>
+                    <td style={{ padding: '8px' }}>{student.parent_phone || '-'}</td>
                   </tr>
                 ))}
               </tbody>
