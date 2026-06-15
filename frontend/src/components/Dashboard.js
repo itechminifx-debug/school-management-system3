@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 
 function Dashboard() {
   const [stats, setStats] = useState({
@@ -114,13 +115,47 @@ function Dashboard() {
 
   return (
     <div className="container">
+      {/* Welcome Card */}
       {user && (
-        <div className="card" style={{ textAlign: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+        <div className="card" style={{ textAlign: 'center', background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)', color: 'white' }}>
           <h2 style={{ color: 'white', borderLeftColor: 'white' }}>Welcome back, {user.full_name}! 👋</h2>
           <p style={{ opacity: 0.9 }}>Role: {user.role.toUpperCase()} | School ID: {user.school_id}</p>
         </div>
       )}
 
+      {/* Quick Action Buttons */}
+      <div className="stats-grid" style={{ marginBottom: '2rem' }}>
+        <Link to="/students" className="stat-card" style={{ textDecoration: 'none', display: 'block' }}>
+          <h3>👥</h3>
+          <p>Manage Students</p>
+        </Link>
+        <Link to="/attendance" className="stat-card" style={{ textDecoration: 'none', display: 'block' }}>
+          <h3>📋</h3>
+          <p>Mark Attendance</p>
+        </Link>
+        <Link to="/fees" className="stat-card" style={{ textDecoration: 'none', display: 'block' }}>
+          <h3>🍽️</h3>
+          <p>Daily Fees</p>
+        </Link>
+        <Link to="/advance-payment" className="stat-card" style={{ textDecoration: 'none', display: 'block' }}>
+          <h3>💰</h3>
+          <p>Advance Payment</p>
+        </Link>
+        <Link to="/school-fees" className="stat-card" style={{ textDecoration: 'none', display: 'block' }}>
+          <h3>🏫</h3>
+          <p>School Fees</p>
+        </Link>
+        <Link to="/grades" className="stat-card" style={{ textDecoration: 'none', display: 'block' }}>
+          <h3>🎓</h3>
+          <p>Grades</p>
+        </Link>
+        <Link to="/report-card" className="stat-card" style={{ textDecoration: 'none', display: 'block' }}>
+          <h3>📄</h3>
+          <p>Report Cards</p>
+        </Link>
+      </div>
+
+      {/* Statistics Cards */}
       <div className="stats-grid">
         <div className="stat-card">
           <h3>{stats.totalStudents}</h3>
@@ -167,7 +202,7 @@ function Dashboard() {
                     <td>{record.admission_number}</td>
                     <td>{getClassName(record.class_level_id)}</td>
                     <td><span className={getStatusClass(record.status)}>{record.status.toUpperCase()}</span></td>
-                  <tr>
+                  </tr>
                 ))}
               </tbody>
             </table>
