@@ -151,5 +151,65 @@ router.get('/summary/:studentId', authenticateToken, async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch summary', error: error.message });
     }
 });
+// ========================================
+// DELETE/UNDO ATTENDANCE RECORD
+// ========================================
+router.delete('/:attendanceId', authenticateToken, async (req, res) => {
+    const pool = getDb(req);
+    const attendanceId = req.params.attendanceId;
+    const schoolId = req.user.schoolId;
+    
+    try {
+        // Verify attendance belongs to student in this school
+        const checkResult = await pool.query(
+            `SELECT a.id, a.student_id, a.date, a.status
+             FROM attendance a
+             JOIN students s ON a.student_id = s.id
+             WHERE a.id = $1 AND s.school_id = $2`,
+            [attendanceId, schoolId]
+        );
+        
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Attendance record not found' });
+        }
+        
+        await pool.query(`DELETE FROM attendance WHERE id = $1`, [attendanceId]);
+        
+        res.json({ 
+            message: 'Attendance record deleted successfully',
+            deleted: checkResult.rows[0]
+        });
+    } catch (error) {
+        console.error('Error deleting attendance:', error);
+        res.status(500).json({ message: 'Failed to delete attendance record', error: error.message });
+    }
+});
+
+// ========================================
+// GET ALL ATTENDANCE FOR A DATE (with delete option)
+// ========================================
+router.get('/date/:date', authenticateToken, async (req, res) => {
+    const pool = getDb(req);
+    const date = req.params.date;
+    const schoolId = req.user.schoolId;
+    
+    try {
+        const result = await pool.query(
+            `SELECT a.id, a.student_id, a.date, a.status, 
+                    s.full_name, s.admission_number, s.class_level_id, c.name as class_name
+             FROM attendance a
+             JOIN students s ON a.student_id = s.id
+             JOIN class_levels c ON s.class_level_id = c.id
+             WHERE a.date = $1 AND s.school_id = $2
+             ORDER BY c.level_order, s.full_name`,
+            [date, schoolId]
+        );
+        
+        res.json({ attendance: result.rows });
+    } catch (error) {
+        console.error('Error fetching attendance:', error);
+        res.status(500).json({ message: 'Failed to fetch attendance', error: error.message });
+    }
+});
 
 module.exports = router;
