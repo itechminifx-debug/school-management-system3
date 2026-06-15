@@ -160,13 +160,13 @@ function SchoolFees() {
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
           <div style={{ flex: 1 }}>
             <label>Select Class:</label>
-            <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="form-control">
+            <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="form-control" style={{ width: '100%', padding: '0.5rem' }}>
               {classLevels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div style={{ flex: 1 }}>
             <label>Select Term:</label>
-            <select value={selectedTerm} onChange={(e) => setSelectedTerm(e.target.value)} className="form-control">
+            <select value={selectedTerm} onChange={(e) => setSelectedTerm(e.target.value)} className="form-control" style={{ width: '100%', padding: '0.5rem' }}>
               <option value="Term 1">Term 1</option>
               <option value="Term 2">Term 2</option>
               <option value="Term 3">Term 3</option>
@@ -174,10 +174,10 @@ function SchoolFees() {
           </div>
           <div style={{ flex: 1 }}>
             <label>Academic Year:</label>
-            <input type="text" value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} className="form-control" />
+            <input type="text" value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} className="form-control" style={{ width: '100%', padding: '0.5rem' }} />
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-            <button onClick={fetchArrears} style={{ background: '#e74c3c' }}>📋 View Arrears</button>
+            <button onClick={fetchArrears} style={{ background: '#e74c3c', padding: '0.5rem 1rem' }}>📋 View Arrears</button>
           </div>
         </div>
 
@@ -243,7 +243,7 @@ function SchoolFees() {
                         Record Payment
                       </button>
                     </td>
-                  <tr>
+                  </tr>
                 ))}
               </tbody>
             </table>
@@ -285,14 +285,26 @@ function SchoolFees() {
               <div className="stat-card"><h3>₵{arrearsData.total_owing_amount?.toLocaleString()}</h3><p>Total Arrears</p></div>
             </div>
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%' }}>
-                <thead><tr><th>Class</th><th>Admission No</th><th>Student Name</th><th>Total Fees</th><th>Paid</th><th>Arrears</th></tr></thead>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: '10px', background: '#1e3c72', color: 'white' }}>Class</th>
+                    <th style={{ padding: '10px', background: '#1e3c72', color: 'white' }}>Admission No</th>
+                    <th style={{ padding: '10px', background: '#1e3c72', color: 'white' }}>Student Name</th>
+                    <th style={{ padding: '10px', background: '#1e3c72', color: 'white' }}>Total Fees</th>
+                    <th style={{ padding: '10px', background: '#1e3c72', color: 'white' }}>Paid</th>
+                    <th style={{ padding: '10px', background: '#1e3c72', color: 'white' }}>Arrears</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {arrearsData.students?.map(s => (
                     <tr key={s.id}>
-                      <td>{s.class_name}</td><td>{s.admission_number}</td><td>{s.full_name}</td>
-                      <td>₵{s.total_fees?.toLocaleString()}</td><td>₵{s.amount_paid?.toLocaleString()}</td>
-                      <td style={{ color: '#e74c3c', fontWeight: 'bold' }}>₵{s.balance?.toLocaleString()}</td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{s.class_name}</td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{s.admission_number}</td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{s.full_name}</td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>₵{s.total_fees?.toLocaleString()}</td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>₵{s.amount_paid?.toLocaleString()}</td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid #ddd', color: '#e74c3c', fontWeight: 'bold' }}>₵{s.balance?.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
