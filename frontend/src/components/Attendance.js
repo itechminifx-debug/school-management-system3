@@ -123,11 +123,11 @@ function Attendance() {
       );
       
       await Promise.all(promises);
-      setMessage('✅ Attendance saved successfully!');
+      setMessage('Attendance saved successfully!');
       setTimeout(() => setMessage(''), 3000);
       await fetchTodayAttendance();
     } catch (err) {
-      setError('❌ Error saving attendance');
+      setError('Error saving attendance');
       setTimeout(() => setError(''), 3000);
     } finally {
       setSaving(false);
@@ -135,7 +135,7 @@ function Attendance() {
   };
 
   const handleDeleteAttendance = async (attendanceId, studentName, status, recordDate) => {
-    if (!window.confirm(`⚠️ DELETE ATTENDANCE RECORD\n\nDelete ${status.toUpperCase()} record for ${studentName} on ${recordDate}?\n\nThis action cannot be undone.`)) {
+    if (!window.confirm(`Delete ${status.toUpperCase()} record for ${studentName} on ${recordDate}? This action cannot be undone.`)) {
       return;
     }
 
@@ -147,7 +147,7 @@ function Attendance() {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      setMessage(`↶ Attendance record for ${studentName} has been deleted!`);
+      setMessage(`Attendance record for ${studentName} has been deleted!`);
       await fetchTodayAttendance();
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
@@ -174,7 +174,7 @@ function Attendance() {
   return (
     <div className="container">
       <div className="card">
-        <h2>📋 Mark Attendance</h2>
+        <h2>Mark Attendance</h2>
         {message && <div className="success">{message}</div>}
         {error && <div className="error">{error}</div>}
         
@@ -207,7 +207,7 @@ function Attendance() {
             </div>
             
             <div className="success" style={{ margin: 0, padding: '0.3rem 1rem' }}>
-              👨‍🎓 Students: {filteredStudents.length}
+              Students: {filteredStudents.length}
             </div>
           </div>
           
@@ -227,7 +227,7 @@ function Attendance() {
                       <th style={{ padding: '10px' }}>Student Name</th>
                       <th style={{ padding: '10px' }}>Status</th>
                       <th style={{ padding: '10px', textAlign: 'center' }}>Action</th>
-                    </td>
+                    </tr>
                   </thead>
                   <tbody>
                     {filteredStudents.map(student => {
@@ -244,10 +244,10 @@ function Attendance() {
                               value={currentStatus}
                               style={{ padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', minWidth: '120px' }}
                             >
-                              <option value="present">✅ Present</option>
-                              <option value="absent">❌ Absent</option>
-                              <option value="late">⏰ Late</option>
-                              <option value="excused">📝 Excused</option>
+                              <option value="present"> Present</option>
+                              <option value="absent"> Absent</option>
+                              <option value="late"> Late</option>
+                              <option value="excused"> Excused</option>
                             </select>
                           </td>
                           <td style={{ padding: '8px', textAlign: 'center' }}>
@@ -265,10 +265,14 @@ function Attendance() {
                                   background: '#dc3545',
                                   padding: '4px 12px',
                                   fontSize: '0.75rem',
-                                  opacity: deletingId === existingRecord.id ? 0.6 : 1
+                                  opacity: deletingId === existingRecord.id ? 0.6 : 1,
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  color: 'white'
                                 }}
                               >
-                                {deletingId === existingRecord.id ? '...' : '🗑️ Delete'}
+                                {deletingId === existingRecord.id ? '...' : 'Delete'}
                               </button>
                             )}
                           </td>
@@ -280,7 +284,7 @@ function Attendance() {
               </div>
               
               <button type="submit" disabled={saving} style={{ marginTop: '1.5rem' }}>
-                {saving ? 'Saving...' : '💾 Save Attendance'}
+                {saving ? 'Saving...' : 'Save Attendance'}
               </button>
             </>
           )}
@@ -290,24 +294,24 @@ function Attendance() {
       {/* Today's Attendance Summary with Delete */}
       {savedAttendance.length > 0 && (
         <div className="card">
-          <h3>📊 Attendance Summary for {date}</h3>
+          <h3>Attendance Summary for {date}</h3>
           
           <div className="stats-grid" style={{ marginBottom: '1rem' }}>
             <div className="stat-card">
               <h3 style={{ color: '#10b981' }}>{savedAttendance.filter(a => a.status === 'present').length}</h3>
-              <p>Present ✅</p>
+              <p>Present</p>
             </div>
             <div className="stat-card">
               <h3 style={{ color: '#ef4444' }}>{savedAttendance.filter(a => a.status === 'absent').length}</h3>
-              <p>Absent ❌</p>
+              <p>Absent</p>
             </div>
             <div className="stat-card">
               <h3 style={{ color: '#f59e0b' }}>{savedAttendance.filter(a => a.status === 'late').length}</h3>
-              <p>Late ⏰</p>
+              <p>Late</p>
             </div>
             <div className="stat-card">
               <h3 style={{ color: '#8b5cf6' }}>{savedAttendance.filter(a => a.status === 'excused').length}</h3>
-              <p>Excused 📝</p>
+              <p>Excused</p>
             </div>
           </div>
           
@@ -346,10 +350,14 @@ function Attendance() {
                           background: '#dc3545',
                           padding: '4px 12px',
                           fontSize: '0.75rem',
-                          opacity: deletingId === record.id ? 0.6 : 1
+                          opacity: deletingId === record.id ? 0.6 : 1,
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          color: 'white'
                         }}
                       >
-                        {deletingId === record.id ? '...' : '🗑️ Delete'}
+                        {deletingId === record.id ? '...' : 'Delete'}
                       </button>
                     </td>
                   </tr>
