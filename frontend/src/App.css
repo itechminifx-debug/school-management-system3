@@ -1,26 +1,38 @@
 /* ========================================
-   CATCHY SCHOOL MANAGEMENT SYSTEM
-   Vibrant Colors + Modern Design + Animations
+   PREMIUM SCHOOL MANAGEMENT SYSTEM
+   Attractive + Professional + Modern Colors
    ======================================== */
 
 /* Import Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,100..900;1,100..900&display=swap');
 
-/* CSS Variables - Catchy Color Palette */
+/* Premium Color Palette */
 :root {
-  --primary: #6366f1;
-  --primary-dark: #4f46e5;
-  --primary-light: #818cf8;
-  --secondary: #06b6d4;
-  --secondary-dark: #0891b2;
-  --accent: #f59e0b;
-  --accent-dark: #d97706;
-  --success: #10b981;
-  --danger: #ef4444;
-  --warning: #f59e0b;
-  --info: #3b82f6;
-  --dark: #1e293b;
-  --light: #f8fafc;
+  /* Primary - Royal Blue & Purple Gradient */
+  --primary: #4361ee;
+  --primary-dark: #3a0ca3;
+  --primary-light: #7209b7;
+  --primary-gradient: linear-gradient(135deg, #4361ee 0%, #7209b7 50%, #f72585 100%);
+  
+  /* Secondary - Coral & Orange */
+  --secondary: #f72585;
+  --secondary-dark: #d90429;
+  --secondary-light: #ff6d6d;
+  
+  /* Accent - Gold & Yellow */
+  --accent: #f9c74f;
+  --accent-dark: #f9844a;
+  
+  /* Status Colors */
+  --success: #06d6a0;
+  --success-dark: #118ab2;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --info: #4cc9f0;
+  
+  /* Grayscale */
+  --dark: #073b4c;
+  --light: #f8f9fa;
   --white: #ffffff;
   --gray-100: #f1f5f9;
   --gray-200: #e2e8f0;
@@ -32,20 +44,18 @@
   --gray-800: #1e293b;
   --gray-900: #0f172a;
   
-  /* Gradient Colors */
-  --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #06b6d4 100%);
-  --gradient-secondary: linear-gradient(135deg, #f59e0b 0%, #ef4444 50%, #ec4899 100%);
-  --gradient-success: linear-gradient(135deg, #10b981 0%, #34d399 100%);
-  --gradient-danger: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
-  --gradient-bg: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  /* Background Gradients */
+  --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%);
+  --card-gradient: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.98));
   
   /* Shadows */
-  --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
-  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
-  --shadow-xl: 0 20px 25px rgba(0,0,0,0.15);
-  --shadow-2xl: 0 25px 50px rgba(0,0,0,0.25);
-  --shadow-glow: 0 0 20px rgba(99,102,241,0.3);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+  --shadow-xl: 0 12px 36px rgba(0,0,0,0.15);
+  --shadow-2xl: 0 24px 48px rgba(0,0,0,0.2);
+  --shadow-glow: 0 0 20px rgba(67,97,238,0.4);
+  --shadow-glow-pink: 0 0 20px rgba(247,37,133,0.4);
   
   /* Border Radius */
   --radius-sm: 8px;
@@ -63,7 +73,7 @@
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%);
   background-attachment: fixed;
   color: var(--gray-800);
   min-height: 100vh;
@@ -77,8 +87,8 @@ body::before {
   left: 0;
   right: 0;
   bottom: 0;
-  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="rgba(255,255,255,0.03)" fill-opacity="1" d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,122.7C672,117,768,139,864,154.7C960,171,1056,181,1152,165.3C1248,149,1344,107,1392,85.3L1440,64L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>') repeat-x bottom;
-  opacity: 0.2;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="rgba(255,255,255,0.05)" fill-opacity="1" d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,122.7C672,117,768,139,864,154.7C960,171,1056,181,1152,165.3C1248,149,1344,107,1392,85.3L1440,64L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>') repeat-x bottom;
+  opacity: 0.3;
   pointer-events: none;
   animation: wave 20s linear infinite;
 }
@@ -93,8 +103,8 @@ body::before {
    ======================================== */
 
 .navbar {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(12px);
   padding: 1rem 2rem;
   display: flex;
   justify-content: space-between;
@@ -105,25 +115,19 @@ body::before {
   position: sticky;
   top: 0;
   z-index: 1000;
-  border-bottom: 2px solid rgba(99,102,241,0.2);
+  border-bottom: 2px solid rgba(67,97,238,0.2);
   animation: slideDown 0.5s ease;
 }
 
 @keyframes slideDown {
-  from {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 .navbar h1 {
   font-size: 1.6rem;
   font-weight: 800;
-  background: var(--gradient-primary);
+  background: var(--primary-gradient);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -171,7 +175,7 @@ body::before {
   transform: translateX(-50%);
   width: 0;
   height: 3px;
-  background: var(--gradient-primary);
+  background: var(--primary-gradient);
   transition: width 0.3s ease;
 }
 
@@ -185,13 +189,13 @@ body::before {
 }
 
 .nav-links a.active {
-  background: var(--gradient-primary);
+  background: var(--primary-gradient);
   color: white;
   box-shadow: var(--shadow-glow);
 }
 
 .logout-btn {
-  background: var(--gradient-danger);
+  background: linear-gradient(135deg, #ef476f, #f72585);
   color: white;
   border: none;
   padding: 0.6rem 1.2rem;
@@ -205,7 +209,7 @@ body::before {
 
 .logout-btn:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-glow-pink);
 }
 
 /* ========================================
@@ -220,14 +224,8 @@ body::before {
 }
 
 @keyframes fadeInUp {
-  from {
-    transform: translateY(30px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 /* ========================================
@@ -235,8 +233,8 @@ body::before {
    ======================================== */
 
 .card {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(12px);
   border-radius: var(--radius-xl);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
@@ -261,7 +259,7 @@ h1, h2, h3, h4, h5, h6 {
 
 h2 {
   font-size: 1.75rem;
-  background: var(--gradient-primary);
+  background: var(--primary-gradient);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -277,7 +275,7 @@ h2::after {
   left: 0;
   width: 60%;
   height: 3px;
-  background: var(--gradient-primary);
+  background: var(--primary-gradient);
   border-radius: 3px;
   animation: widthGrow 0.5s ease;
 }
@@ -289,7 +287,10 @@ h2::after {
 
 h3 {
   font-size: 1.25rem;
-  color: var(--gray-700);
+  background: linear-gradient(135deg, #4361ee, #7209b7);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   margin-bottom: 1rem;
 }
 
@@ -316,7 +317,7 @@ input, select, textarea {
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+  box-shadow: 0 0 0 3px rgba(67,97,238,0.1);
   transform: translateY(-1px);
 }
 
@@ -325,7 +326,7 @@ input:focus, select:focus, textarea:focus {
    ======================================== */
 
 button {
-  background: var(--gradient-primary);
+  background: var(--primary-gradient);
   color: white;
   border: none;
   padding: 0.875rem 1.5rem;
@@ -366,7 +367,7 @@ button:active {
 }
 
 /* ========================================
-   STATS GRID - CATCHY CARDS
+   STATS GRID - ATTRACTIVE CARDS
    ======================================== */
 
 .stats-grid {
@@ -377,8 +378,8 @@ button:active {
 }
 
 .stat-card {
-  background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.9));
-  backdrop-filter: blur(10px);
+  background: linear-gradient(135deg, rgba(255,255,255,0.97), rgba(255,255,255,0.95));
+  backdrop-filter: blur(12px);
   padding: 1.5rem;
   border-radius: var(--radius-xl);
   text-align: center;
@@ -386,7 +387,7 @@ button:active {
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.3);
 }
 
 .stat-card::before {
@@ -396,7 +397,7 @@ button:active {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle, rgba(99,102,241,0.1), transparent);
+  background: radial-gradient(circle, rgba(67,97,238,0.15), transparent);
   opacity: 0;
   transition: opacity 0.6s;
 }
@@ -413,7 +414,7 @@ button:active {
 .stat-card h3 {
   font-size: 2.5rem;
   font-weight: 800;
-  background: var(--gradient-primary);
+  background: var(--primary-gradient);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -423,7 +424,7 @@ button:active {
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.8; }
+  50% { opacity: 0.85; }
 }
 
 .stat-card p {
@@ -450,7 +451,7 @@ table {
 }
 
 th {
-  background: var(--gradient-primary);
+  background: var(--primary-gradient);
   color: white;
   padding: 1rem;
   text-align: left;
@@ -463,26 +464,26 @@ td {
 }
 
 tr:hover td {
-  background: rgba(99,102,241,0.05);
+  background: rgba(67,97,238,0.05);
 }
 
 /* ========================================
-   STATUS BADGES - CATCHY COLORS
+   STATUS BADGES - PREMIUM COLORS
    ======================================== */
 
 .status-present {
-  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  background: linear-gradient(135deg, #06d6a0, #118ab2);
   color: white;
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
   font-size: 0.75rem;
   font-weight: 600;
   display: inline-block;
-  animation: glow 1s infinite;
+  animation: glow 2s infinite;
 }
 
 .status-absent {
-  background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+  background: linear-gradient(135deg, #ef476f, #f72585);
   color: white;
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
@@ -492,8 +493,8 @@ tr:hover td {
 }
 
 .status-late {
-  background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
-  color: white;
+  background: linear-gradient(135deg, #ffd166, #f9844a);
+  color: #073b4c;
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
   font-size: 0.75rem;
@@ -502,7 +503,7 @@ tr:hover td {
 }
 
 .status-excused {
-  background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+  background: linear-gradient(135deg, #4cc9f0, #4361ee);
   color: white;
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
@@ -512,8 +513,8 @@ tr:hover td {
 }
 
 @keyframes glow {
-  0%, 100% { box-shadow: 0 0 5px rgba(16,185,129,0.3); }
-  50% { box-shadow: 0 0 20px rgba(16,185,129,0.6); }
+  0%, 100% { box-shadow: 0 0 5px rgba(6,214,160,0.3); }
+  50% { box-shadow: 0 0 20px rgba(6,214,160,0.6); }
 }
 
 /* ========================================
@@ -521,7 +522,7 @@ tr:hover td {
    ======================================== */
 
 .success {
-  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  background: linear-gradient(135deg, #06d6a0, #118ab2);
   color: white;
   padding: 1rem;
   border-radius: var(--radius-md);
@@ -531,7 +532,7 @@ tr:hover td {
 }
 
 .error {
-  background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+  background: linear-gradient(135deg, #ef476f, #f72585);
   color: white;
   padding: 1rem;
   border-radius: var(--radius-md);
@@ -541,18 +542,12 @@ tr:hover td {
 }
 
 @keyframes slideIn {
-  from {
-    transform: translateX(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+  from { transform: translateX(-100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
 
 /* ========================================
-   LOGIN PAGE - CATCHY
+   LOGIN PAGE - PREMIUM
    ======================================== */
 
 .login-container {
@@ -560,7 +555,7 @@ tr:hover td {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--gradient-bg);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%);
   position: relative;
   overflow: hidden;
 }
@@ -570,7 +565,7 @@ tr:hover td {
   position: absolute;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle, rgba(255,255,255,0.1), transparent);
+  background: radial-gradient(circle, rgba(255,255,255,0.15), transparent);
   animation: rotate 20s linear infinite;
 }
 
@@ -580,8 +575,8 @@ tr:hover td {
 }
 
 .login-card {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(12px);
   border-radius: var(--radius-2xl);
   padding: 3rem;
   width: 100%;
@@ -589,7 +584,7 @@ tr:hover td {
   box-shadow: var(--shadow-2xl);
   animation: fadeInUp 0.6s;
   z-index: 1;
-  border: 1px solid rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.3);
 }
 
 .login-card h2 {
@@ -608,6 +603,8 @@ tr:hover td {
   color: var(--gray-500);
   font-size: 1rem;
   margin-bottom: 2rem;
+  background: none;
+  -webkit-text-fill-color: var(--gray-500);
 }
 
 /* ========================================
@@ -635,7 +632,10 @@ tr:hover td {
 }
 
 .school-header h1 {
-  color: var(--primary);
+  background: var(--primary-gradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   font-size: 1.8rem;
 }
 
