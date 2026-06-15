@@ -27,11 +27,11 @@ function Navigation({ onLogout }) {
         <Link to="/students" className={isActive('/students')}>👥 Students</Link>
         <Link to="/add-student" className={isActive('/add-student')}>➕ Add Student</Link>
         <Link to="/attendance" className={isActive('/attendance')}>📋 Attendance</Link>
-        <Link to="/school-fees">🏫 School Fees</Link>
-        <Link to="/fees">💰 Fees</Link>
-        <Link to="/advance-payment">💰 Advance Payment</Link>
         <Link to="/grades" className={isActive('/grades')}>🎓 Grades</Link>
         <Link to="/report-card" className={isActive('/report-card')}>📄 Report Card</Link>
+        <Link to="/fees" className={isActive('/fees')}>🍽️ Fees</Link>
+        <Link to="/advance-payment" className={isActive('/advance-payment')}>💰 Advance Payment</Link>
+        <Link to="/school-fees" className={isActive('/school-fees')}>🏫 School Fees</Link>
         <button onClick={onLogout} className="logout-btn">🚪 Logout</button>
       </div>
     </nav>
@@ -85,7 +85,7 @@ function App() {
           <Route path="/report-card" element={
             isAuthenticated ? <ReportCard /> : <Navigate to="/login" />
           } />
-         <Route path="/fees" element={
+          <Route path="/fees" element={
             isAuthenticated ? <Fees /> : <Navigate to="/login" />
           } />
           <Route path="/advance-payment" element={
