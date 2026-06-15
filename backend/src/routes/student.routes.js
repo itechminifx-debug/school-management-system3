@@ -113,7 +113,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
     const pool = getDb(req);
     const schoolId = req.user.schoolId;
     const studentId = req.params.id;
-    const { full_name, class_level_id, parent_phone, date_of_birth, address } = req.body;
+    const { full_name, class_level_id, parent_phone, date_of_birth, address, admission_number } = req.body;
     
     try {
         // Check if student exists and belongs to this school
@@ -137,16 +137,28 @@ router.put('/:id', authenticateToken, async (req, res) => {
             }
         }
         
+        // Check if admission number already exists for another student
+        if (admission_number) {
+            const existingCheck = await pool.query(
+                'SELECT id FROM students WHERE admission_number = $1 AND id != $2 AND school_id = $3',
+                [admission_number, studentId, schoolId]
+            );
+            if (existingCheck.rows.length > 0) {
+                return res.status(409).json({ message: 'Admission number already exists for another student' });
+            }
+        }
+        
         const result = await pool.query(
             `UPDATE students 
              SET full_name = COALESCE($1, full_name),
                  class_level_id = COALESCE($2, class_level_id),
                  parent_phone = COALESCE($3, parent_phone),
                  date_of_birth = COALESCE($4, date_of_birth),
-                 address = COALESCE($5, address)
-             WHERE id = $6 AND school_id = $7
+                 address = COALESCE($5, address),
+                 admission_number = COALESCE($6, admission_number)
+             WHERE id = $7 AND school_id = $8
              RETURNING id, admission_number, full_name, class_level_id, parent_phone, date_of_birth, address`,
-            [full_name, class_level_id, parent_phone, date_of_birth, address, studentId, schoolId]
+            [full_name, class_level_id, parent_phone, date_of_birth, address, admission_number, studentId, schoolId]
         );
         
         res.json({ 

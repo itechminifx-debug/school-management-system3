@@ -11,6 +11,7 @@ function AddStudent() {
     date_of_birth: ''
   });
   const [classLevels, setClassLevels] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -20,13 +21,16 @@ function AddStudent() {
 
   const fetchClassLevels = async () => {
     const token = localStorage.getItem('token');
+    const apiUrl = 'https://school-management-api-5mml.onrender.com';
+    
     try {
-      const response = await axios.get('http://localhost:5000/api/class-levels', {
+      const response = await axios.get(`${apiUrl}/api/class-levels`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setClassLevels(response.data.classLevels);
     } catch (error) {
       console.error('Error fetching class levels:', error);
+      setError('Failed to load class levels');
     }
   };
 
@@ -36,14 +40,18 @@ function AddStudent() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setMessage('');
+    setError('');
+
     const token = localStorage.getItem('token');
+    const apiUrl = 'https://school-management-api-5mml.onrender.com';
 
     try {
-      await axios.post('http://localhost:5000/api/students', formData, {
+      await axios.post(`${apiUrl}/api/students`, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMessage('Student added successfully!');
-      setError('');
       setFormData({ 
         admission_number: '', 
         full_name: '', 
@@ -55,7 +63,9 @@ function AddStudent() {
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to add student');
-      setMessage('');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -100,7 +110,7 @@ function AddStudent() {
             <option value="">Select Class Level</option>
             
             {nurseryClasses.length > 0 && (
-              <optgroup label="🏫 NURSERY">
+              <optgroup label="🍼 NURSERY">
                 {nurseryClasses.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -156,7 +166,9 @@ function AddStudent() {
             rows="3"
           ></textarea>
           
-          <button type="submit">Add Student</button>
+          <button type="submit" disabled={loading}>
+            {loading ? 'Adding...' : 'Add Student'}
+          </button>
         </form>
       </div>
     </div>

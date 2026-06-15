@@ -3,7 +3,6 @@ import axios from 'axios';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, PointElement, LineElement } from 'chart.js';
 import { Bar, Pie, Line, Doughnut } from 'react-chartjs-2';
 
-// Register ChartJS components
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, PointElement, LineElement);
 
 function Dashboard() {
@@ -197,19 +196,16 @@ function Dashboard() {
     return `status-${status}`;
   };
 
-  // Chart Data
   const barChartData = {
     labels: classData.map(c => c.name),
-    datasets: [
-      {
-        label: 'Number of Students',
-        data: classData.map(c => c.count),
-        backgroundColor: 'rgba(99, 102, 241, 0.7)',
-        borderColor: 'rgba(99, 102, 241, 1)',
-        borderWidth: 1,
-        borderRadius: 8,
-      },
-    ],
+    datasets: [{
+      label: 'Number of Students',
+      data: classData.map(c => c.count),
+      backgroundColor: 'rgba(99, 102, 241, 0.7)',
+      borderColor: 'rgba(99, 102, 241, 1)',
+      borderWidth: 1,
+      borderRadius: 8,
+    }],
   };
 
   const attendanceLineData = {
@@ -222,11 +218,6 @@ function Dashboard() {
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
         fill: true,
         tension: 0.4,
-        pointBackgroundColor: '#10b981',
-        pointBorderColor: '#fff',
-        pointBorderWidth: 2,
-        pointRadius: 4,
-        pointHoverRadius: 6,
       },
       {
         label: 'Absent',
@@ -235,72 +226,48 @@ function Dashboard() {
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
         fill: true,
         tension: 0.4,
-        pointBackgroundColor: '#ef4444',
-        pointBorderColor: '#fff',
-        pointBorderWidth: 2,
-        pointRadius: 4,
-        pointHoverRadius: 6,
       },
     ],
   };
 
   const pieChartData = {
     labels: ['Present Today', 'Absent Today', 'Late Today'],
-    datasets: [
-      {
-        data: [stats.totalPresent, stats.totalAbsent, stats.totalLate],
-        backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
-        borderColor: ['#fff', '#fff', '#fff'],
-        borderWidth: 2,
-      },
-    ],
+    datasets: [{
+      data: [stats.totalPresent, stats.totalAbsent, stats.totalLate],
+      backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
+      borderColor: ['#fff', '#fff', '#fff'],
+      borderWidth: 2,
+    }],
   };
 
   const doughnutChartData = {
     labels: ['Collected', 'Outstanding'],
-    datasets: [
-      {
-        data: [feeData.collected, feeData.expected - feeData.collected],
-        backgroundColor: ['#10b981', '#ef4444'],
-        borderColor: ['#fff', '#fff'],
-        borderWidth: 2,
-      },
-    ],
+    datasets: [{
+      data: [feeData.collected, feeData.expected - feeData.collected],
+      backgroundColor: ['#10b981', '#ef4444'],
+      borderColor: ['#fff', '#fff'],
+      borderWidth: 2,
+    }],
   };
 
   const barChartOptions = {
     responsive: true,
     maintainAspectRatio: true,
-    plugins: {
-      legend: { position: 'top' },
-      title: { display: false },
-    },
-    scales: {
-      y: { beginAtZero: true, title: { display: true, text: 'Number of Students' } },
-      x: { title: { display: true, text: 'Class Level' } },
-    },
+    plugins: { legend: { position: 'top' }, title: { display: false } },
+    scales: { y: { beginAtZero: true, title: { display: true, text: 'Number of Students' } }, x: { title: { display: true, text: 'Class Level' } } },
   };
 
   const attendanceLineOptions = {
     responsive: true,
     maintainAspectRatio: true,
-    plugins: {
-      legend: { position: 'top' },
-      title: { display: false },
-    },
-    scales: {
-      y: { beginAtZero: true, title: { display: true, text: 'Number of Students' } },
-      x: { title: { display: true, text: 'Day of Week' } },
-    },
+    plugins: { legend: { position: 'top' }, title: { display: false } },
+    scales: { y: { beginAtZero: true, title: { display: true, text: 'Number of Students' } }, x: { title: { display: true, text: 'Day of Week' } } },
   };
 
   const pieChartOptions = {
     responsive: true,
     maintainAspectRatio: true,
-    plugins: {
-      legend: { position: 'bottom' },
-      tooltip: { callbacks: { label: (context) => `${context.label}: ${context.raw} students` } },
-    },
+    plugins: { legend: { position: 'bottom' } },
   };
 
   if (loading) {
@@ -310,10 +277,7 @@ function Dashboard() {
   if (error) {
     return (
       <div className="container">
-        <div className="card">
-          <div className="error">{error}</div>
-          <button onClick={() => window.location.reload()}>Retry</button>
-        </div>
+        <div className="card"><div className="error">{error}</div><button onClick={() => window.location.reload()}>Retry</button></div>
       </div>
     );
   }
@@ -327,7 +291,6 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Statistics Cards */}
       <div className="stats-grid">
         <div className="stat-card"><h3>{stats.totalStudents}</h3><p>Total Students</p></div>
         <div className="stat-card"><h3 style={{ color: '#10b981' }}>{stats.totalPresent}</h3><p>Present Today ✅</p></div>
@@ -336,32 +299,13 @@ function Dashboard() {
         <div className="stat-card"><h3>{stats.attendanceRate}%</h3><p>Attendance Rate</p></div>
       </div>
 
-      {/* Charts Row 1 */}
       <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
-        <div className="card">
-          <h3>📊 Student Enrollment by Class</h3>
-          {classData.length > 0 ? (
-            <Bar data={barChartData} options={barChartOptions} height={250} />
-          ) : (
-            <p>No student data available</p>
-          )}
-        </div>
-        <div className="card">
-          <h3>📈 Weekly Attendance Trend</h3>
-          {weeklyAttendance.length > 0 ? (
-            <Line data={attendanceLineData} options={attendanceLineOptions} height={250} />
-          ) : (
-            <p>No attendance data available</p>
-          )}
-        </div>
+        <div className="card"><h3>📊 Student Enrollment by Class</h3>{classData.length > 0 ? <Bar data={barChartData} options={barChartOptions} height={250} /> : <p>No student data available</p>}</div>
+        <div className="card"><h3>📈 Weekly Attendance Trend</h3>{weeklyAttendance.length > 0 ? <Line data={attendanceLineData} options={attendanceLineOptions} height={250} /> : <p>No attendance data available</p>}</div>
       </div>
 
-      {/* Charts Row 2 */}
       <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
-        <div className="card">
-          <h3>🥧 Today's Attendance Distribution</h3>
-          <Pie data={pieChartData} options={pieChartOptions} height={250} />
-        </div>
+        <div className="card"><h3>🥧 Today's Attendance Distribution</h3><Pie data={pieChartData} options={pieChartOptions} height={250} /></div>
         <div className="card">
           <h3>💰 School Fees Collection</h3>
           <Doughnut data={doughnutChartData} options={pieChartOptions} height={250} />
@@ -373,66 +317,28 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Today's Attendance List */}
       <div className="card">
         <h3>📋 Today's Attendance List - {new Date().toLocaleDateString()}</h3>
-        {todayAttendance.length === 0 ? (
-          <p>No attendance recorded for today. Go to Attendance page to mark attendance.</p>
-        ) : (
+        {todayAttendance.length === 0 ? <p>No attendance recorded for today.</p> : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: '#6366f1', color: 'white' }}>
-                  <th style={{ padding: '10px' }}>Student Name</th>
-                  <th style={{ padding: '10px' }}>Admission No</th>
-                  <th style={{ padding: '10px' }}>Class</th>
-                  <th style={{ padding: '10px' }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {todayAttendance.map(record => (
-                  <tr key={record.id} style={{ borderBottom: '1px solid #ddd' }}>
-                    <td style={{ padding: '8px' }}><strong>{record.full_name}</strong></td>
-                    <td style={{ padding: '8px' }}>{record.admission_number}</td>
-                    <td style={{ padding: '8px' }}>{getClassName(record.class_level_id)}</td>
-                    <td style={{ padding: '8px' }}><span className={getStatusClass(record.status)}>{record.status.toUpperCase()}</span></td>
-                  </tr>
-                ))}
-              </tbody>
+              <thead><tr style={{ background: '#6366f1', color: 'white' }}><th>Student Name</th><th>Admission No</th><th>Class</th><th>Status</th></tr></thead>
+              <tbody>{todayAttendance.map(record => (<tr key={record.id}><td><strong>{record.full_name}</strong></td><td>{record.admission_number}</td><td>{getClassName(record.class_level_id)}</td><td><span className={getStatusClass(record.status)}>{record.status.toUpperCase()}</span></td></tr>))}</tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* Recently Enrolled Students */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
           <h3 style={{ marginBottom: 0 }}>📋 Recently Enrolled Students</h3>
           <button onClick={() => window.print()} style={{ background: '#10b981', padding: '0.5rem 1rem', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white' }}>🖨️ Print List</button>
         </div>
-        {recentStudents.length === 0 ? (
-          <p>No students added yet. Click "Add Student" to get started.</p>
-        ) : (
+        {recentStudents.length === 0 ? <p>No students added yet.</p> : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: '#6366f1', color: 'white' }}>
-                  <th style={{ padding: '10px' }}>Admission No</th>
-                  <th style={{ padding: '10px' }}>Student Name</th>
-                  <th style={{ padding: '10px' }}>Class</th>
-                  <th style={{ padding: '10px' }}>Parent Contact</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentStudents.map(student => (
-                  <tr key={student.id} style={{ borderBottom: '1px solid #ddd' }}>
-                    <td style={{ padding: '8px' }}>{student.admission_number}</td>
-                    <td style={{ padding: '8px' }}>{student.full_name}</td>
-                    <td style={{ padding: '8px' }}>{getClassName(student.class_level_id)}</td>
-                    <td style={{ padding: '8px' }}>{student.parent_phone || '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
+              <thead><tr style={{ background: '#6366f1', color: 'white' }}><th>Admission No</th><th>Student Name</th><th>Class</th><th>Parent Contact</th></tr></thead>
+              <tbody>{recentStudents.map(student => (<tr key={student.id}><td>{student.admission_number}</td><td>{student.full_name}</td><td>{getClassName(student.class_level_id)}</td><td>{student.parent_phone || '-'}</td></tr>))}</tbody>
             </table>
           </div>
         )}

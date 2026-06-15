@@ -42,7 +42,7 @@ function ReportCard() {
   const fetchClassLevels = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.get('http://localhost:5000/api/class-levels', {
+      const response = await axios.get('https://school-management-api-5mml.onrender.com/api/class-levels', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setClassLevels(response.data.classLevels);
@@ -57,7 +57,7 @@ function ReportCard() {
   const fetchAllStudents = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.get('http://localhost:5000/api/students', {
+      const response = await axios.get('https://school-management-api-5mml.onrender.com/api/students', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setStudents(response.data.students);
@@ -70,11 +70,10 @@ function ReportCard() {
     setLoading(true);
     setError('');
     const token = localStorage.getItem('token');
-    const timestamp = new Date().getTime();
     
     try {
       const response = await axios.get(
-        `http://localhost:5000/api/grades/report/${selectedStudent}/${term}/${academicYear}?t=${timestamp}`,
+        `https://school-management-api-5mml.onrender.com/api/grades/report/${selectedStudent}/${term}/${academicYear}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
@@ -82,48 +81,23 @@ function ReportCard() {
       const studentData = filteredStudents.find(s => s.id === parseInt(selectedStudent));
       const classId = studentData?.class_level_id;
       
-      // Define allowed subjects per class level (Matching Grades.js exactly)
       let allowedSubjects = [];
       
-      // Kindergarten (KG 1 = ID 4, KG 2 = ID 5)
       if (classId === 4 || classId === 5) {
-        allowedSubjects = [
-          'Literacy', 'Numeracy', 'Creative Arts', 
-          'Religious & Moral Education', 'Phonics'
-        ];
-      }
-      // Lower Primary (Basic 1,2,3 = ID 6,7,8)
-      else if (classId === 6 || classId === 7 || classId === 8) {
-        allowedSubjects = [
-          'English Language', 'Mathematics', 'Science', 
-          'Religious & Moral Education', 'French', 'Creative Arts', 'Phonics'
-        ];
-      }
-      // Upper Primary (Basic 4,5,6 = ID 9,10,11)
-      else if (classId === 9 || classId === 10 || classId === 11) {
-        allowedSubjects = [
-          'English Language', 'Mathematics', 'Science', 'History', 
-          'Creative Arts', 'Religious & Moral Education', 'Computing', 
-          'Ghanaian Language', 'French'
-        ];
-      }
-      // JHS (JHS 1,2,3 = ID 12,13,14)
-      else if (classId === 12 || classId === 13 || classId === 14) {
-        allowedSubjects = [
-          'English Language', 'Mathematics', 'Integrated Science', 
-          'Social Studies', 'Religious & Moral Education', 'Career Technology', 
-          'Computing', 'Ghanaian Language', 'Creative Arts', 'French'
-        ];
+        allowedSubjects = ['Literacy', 'Numeracy', 'Creative Arts', 'Religious & Moral Education', 'Phonics'];
+      } else if (classId === 6 || classId === 7 || classId === 8) {
+        allowedSubjects = ['English Language', 'Mathematics', 'Science', 'Religious & Moral Education', 'French', 'Creative Arts', 'Phonics'];
+      } else if (classId === 9 || classId === 10 || classId === 11) {
+        allowedSubjects = ['English Language', 'Mathematics', 'Science', 'History', 'Creative Arts', 'Religious & Moral Education', 'Computing', 'Ghanaian Language', 'French'];
+      } else if (classId === 12 || classId === 13 || classId === 14) {
+        allowedSubjects = ['English Language', 'Mathematics', 'Integrated Science', 'Social Studies', 'Religious & Moral Education', 'Career Technology', 'Computing', 'Ghanaian Language', 'Creative Arts', 'French'];
       }
       
-      // Filter grades to only show allowed subjects
       filteredGrades = filteredGrades.filter(grade => allowedSubjects.includes(grade.subject));
       
-      // Also include any missing subjects that don't have grades yet (show empty)
       const existingSubjects = filteredGrades.map(g => g.subject);
       const missingSubjects = allowedSubjects.filter(s => !existingSubjects.includes(s));
       
-      // Add empty entries for missing subjects
       missingSubjects.forEach(subject => {
         filteredGrades.push({
           subject: subject,
@@ -132,12 +106,10 @@ function ReportCard() {
         });
       });
       
-      // Sort grades according to allowedSubjects order
       filteredGrades.sort((a, b) => {
         return allowedSubjects.indexOf(a.subject) - allowedSubjects.indexOf(b.subject);
       });
       
-      // Calculate summary with only graded subjects (not empty ones)
       let totalScore = 0;
       let gradedCount = 0;
       filteredGrades.forEach(g => {
