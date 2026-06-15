@@ -9,7 +9,7 @@ const getDb = (req) => req.app.get('db');
 // ========================================
 router.post('/pay', authenticateToken, async (req, res) => {
     const pool = getDb(req);
-    const { student_id, amount, term, academic_year, payment_method, notes } = req.body;
+    const { student_id, amount, term, academic_year, payment_method, expected_amount, notes } = req.body;
     const collected_by = req.user.userId;
     const payment_date = new Date().toISOString().split('T')[0];
     
@@ -22,7 +22,7 @@ router.post('/pay', authenticateToken, async (req, res) => {
         
         // Check if payment already exists for this student, term, and year
         const existingResult = await pool.query(
-            `SELECT id, amount_paid FROM school_fees 
+            `SELECT id, amount_paid, expected_amount FROM school_fees 
              WHERE student_id = $1 AND term = $2 AND academic_year = $3`,
             [student_id, term, academic_year]
         );
@@ -31,21 +31,24 @@ router.post('/pay', authenticateToken, async (req, res) => {
         if (existingResult.rows.length > 0) {
             // Update existing payment
             const newAmount = parseFloat(existingResult.rows[0].amount_paid) + parseFloat(amount);
+            const expectedAmt = expected_amount || existingResult.rows[0].expected_amount;
             result = await pool.query(
                 `UPDATE school_fees 
-                 SET amount_paid = $1, payment_date = $2, payment_method = $3, receipt_number = $4, notes = $5, collected_by = $6
-                 WHERE id = $7
+                 SET amount_paid = $1, payment_date = $2, payment_method = $3, receipt_number = $4, 
+                     notes = $5, collected_by = $6, expected_amount = $7
+                 WHERE id = $8
                  RETURNING *`,
-                [newAmount, payment_date, payment_method, receiptNumber, notes || null, collected_by, existingResult.rows[0].id]
+                [newAmount, payment_date, payment_method, receiptNumber, notes || null, collected_by, expectedAmt, existingResult.rows[0].id]
             );
         } else {
             // Insert new payment
+            const expectedAmt = expected_amount || 500.00;
             result = await pool.query(
                 `INSERT INTO school_fees 
-                 (student_id, term, academic_year, amount_paid, payment_date, payment_method, receipt_number, collected_by, notes)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                 (student_id, term, academic_year, expected_amount, amount_paid, payment_date, payment_method, receipt_number, collected_by, notes)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                  RETURNING *`,
-                [student_id, term, academic_year, amount, payment_date, payment_method, receiptNumber, collected_by, notes || null]
+                [student_id, term, academic_year, expectedAmt, amount, payment_date, payment_method, receiptNumber, collected_by, notes || null]
             );
         }
         
@@ -61,7 +64,7 @@ router.post('/pay', authenticateToken, async (req, res) => {
 });
 
 // ========================================
-// GET PAYMENT SUMMARY BY CLASS
+// GET PAYMENT SUMMARY BY CLASS WITH ARREARS
 // ========================================
 router.get('/summary/:classLevelId/:term/:academicYear', authenticateToken, async (req, res) => {
     const pool = getDb(req);
@@ -94,28 +97,49 @@ router.get('/summary/:classLevelId/:term/:academicYear', authenticateToken, asyn
             paymentMap[p.student_id] = p;
         });
         
-        // Combine data
-        const students = studentsResult.rows.map(student => ({
-            ...student,
-            has_paid: !!paymentMap[student.id],
-            amount_paid: paymentMap[student.id]?.amount_paid || 0,
-            payment_date: paymentMap[student.id]?.payment_date || null,
-            receipt_number: paymentMap[student.id]?.receipt_number || null,
-            payment_method: paymentMap[student.id]?.payment_method || null
-        }));
+        // Combine data with arrears calculation
+        const students = studentsResult.rows.map(student => {
+            const payment = paymentMap[student.id];
+            const expectedAmount = payment?.expected_amount || 500.00;
+            const amountPaid = payment?.amount_paid || 0;
+            const arrears = expectedAmount - amountPaid;
+            let status = 'unpaid';
+            if (arrears <= 0) status = 'paid';
+            else if (amountPaid > 0) status = 'partial';
+            
+            return {
+                ...student,
+                expected_amount: expectedAmount,
+                amount_paid: amountPaid,
+                arrears: arrears > 0 ? arrears : 0,
+                status: status,
+                payment_date: payment?.payment_date || null,
+                receipt_number: payment?.receipt_number || null,
+                payment_method: payment?.payment_method || null,
+                payment_id: payment?.id || null
+            };
+        });
         
-        const totalPaid = paymentsResult.rows.reduce((sum, p) => sum + parseFloat(p.amount_paid), 0);
+        const totalExpected = students.reduce((sum, s) => sum + s.expected_amount, 0);
+        const totalPaid = students.reduce((sum, s) => sum + s.amount_paid, 0);
+        const totalArrears = students.reduce((sum, s) => sum + s.arrears, 0);
         const totalStudents = studentsResult.rows.length;
-        const paidCount = paymentsResult.rows.length;
+        const paidCount = students.filter(s => s.status === 'paid').length;
+        const partialCount = students.filter(s => s.status === 'partial').length;
+        const unpaidCount = students.filter(s => s.status === 'unpaid').length;
         
         res.json({
             class_level_id: parseInt(classLevelId),
+            class_name: studentsResult.rows[0]?.class_name || 'Class',
             term,
             academic_year: academicYear,
             total_students: totalStudents,
             paid_count: paidCount,
-            not_paid_count: totalStudents - paidCount,
+            partial_count: partialCount,
+            unpaid_count: unpaidCount,
+            total_expected: totalExpected,
             total_collected: totalPaid,
+            total_arrears: totalArrears,
             students: students
         });
     } catch (error) {
