@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import Login from './components/Login';
+import { SchoolProvider, useSchool } from './context/SchoolContext';
+import MainLogin from './components/MainLogin';
 import Dashboard from './components/Dashboard';
 import StudentList from './components/StudentList';
 import AddStudent from './components/AddStudent';
@@ -10,18 +11,18 @@ import ReportCard from './components/ReportCard';
 import Fees from './components/Fees';
 import AdvancePayment from './components/AdvancePayment';
 import SchoolFees from './components/SchoolFees';
+import SchoolSettings from './components/SchoolSettings';
 import './App.css';
 
 function Navigation({ onLogout }) {
   const location = useLocation();
+  const { schoolSettings } = useSchool();
   
-  const isActive = (path) => {
-    return location.pathname === path ? 'active' : '';
-  };
+  const isActive = (path) => location.pathname === path ? 'active' : '';
 
   return (
     <nav className="navbar">
-      <h1>🏫 School Management System</h1>
+      <h1>🏫 {schoolSettings.school_name}</h1>
       <div className="nav-links">
         <Link to="/dashboard" className={isActive('/dashboard')}>📊 Dashboard</Link>
         <Link to="/students" className={isActive('/students')}>👥 Students</Link>
@@ -32,13 +33,14 @@ function Navigation({ onLogout }) {
         <Link to="/fees" className={isActive('/fees')}>🍽️ Daily Fees</Link>
         <Link to="/advance-payment" className={isActive('/advance-payment')}>💰 Advance Payment</Link>
         <Link to="/school-fees" className={isActive('/school-fees')}>🏫 School Fees</Link>
+        <Link to="/school-settings" className={isActive('/school-settings')}>⚙️ Settings</Link>
         <button onClick={onLogout} className="logout-btn">🚪 Logout</button>
       </div>
     </nav>
   );
 }
 
-function App() {
+function AppContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -62,42 +64,30 @@ function App() {
     <Router>
       <div className="App">
         {isAuthenticated && <Navigation onLogout={handleLogout} />}
-        
         <Routes>
-          <Route path="/login" element={
-            isAuthenticated ? <Navigate to="/dashboard" /> : <Login onLogin={handleLogin} />
-          } />
-          <Route path="/dashboard" element={
-            isAuthenticated ? <Dashboard /> : <Navigate to="/login" />
-          } />
-          <Route path="/students" element={
-            isAuthenticated ? <StudentList /> : <Navigate to="/login" />
-          } />
-          <Route path="/add-student" element={
-            isAuthenticated ? <AddStudent /> : <Navigate to="/login" />
-          } />
-          <Route path="/attendance" element={
-            isAuthenticated ? <Attendance /> : <Navigate to="/login" />
-          } />
-          <Route path="/grades" element={
-            isAuthenticated ? <Grades /> : <Navigate to="/login" />
-          } />
-          <Route path="/report-card" element={
-            isAuthenticated ? <ReportCard /> : <Navigate to="/login" />
-          } />
-          <Route path="/fees" element={
-            isAuthenticated ? <Fees /> : <Navigate to="/login" />
-          } />
-          <Route path="/advance-payment" element={
-            isAuthenticated ? <AdvancePayment /> : <Navigate to="/login" />
-          } />
-          <Route path="/school-fees" element={
-            isAuthenticated ? <SchoolFees /> : <Navigate to="/login" />
-          } />
+          <Route path="/login" element={<MainLogin onLogin={handleLogin} />} />
+          <Route path="/dashboard" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
+          <Route path="/students" element={isAuthenticated ? <StudentList /> : <Navigate to="/login" />} />
+          <Route path="/add-student" element={isAuthenticated ? <AddStudent /> : <Navigate to="/login" />} />
+          <Route path="/attendance" element={isAuthenticated ? <Attendance /> : <Navigate to="/login" />} />
+          <Route path="/grades" element={isAuthenticated ? <Grades /> : <Navigate to="/login" />} />
+          <Route path="/report-card" element={isAuthenticated ? <ReportCard /> : <Navigate to="/login" />} />
+          <Route path="/fees" element={isAuthenticated ? <Fees /> : <Navigate to="/login" />} />
+          <Route path="/advance-payment" element={isAuthenticated ? <AdvancePayment /> : <Navigate to="/login" />} />
+          <Route path="/school-fees" element={isAuthenticated ? <SchoolFees /> : <Navigate to="/login" />} />
+          <Route path="/school-settings" element={isAuthenticated ? <SchoolSettings /> : <Navigate to="/login" />} />
           <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
       </div>
     </Router>
+  );
+}
+
+function App() {
+  return (
+    <SchoolProvider>
+      <AppContent />
+    </SchoolProvider>
   );
 }
 
