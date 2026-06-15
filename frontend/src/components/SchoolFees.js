@@ -22,6 +22,8 @@ function SchoolFees() {
   const [classFeeAmount, setClassFeeAmount] = useState('');
   const [currentFeeSetting, setCurrentFeeSetting] = useState(null);
   const [showSettingsMessage, setShowSettingsMessage] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState(null);
 
   const apiUrl = 'https://school-management-api-5mml.onrender.com';
 
@@ -48,6 +50,7 @@ function SchoolFees() {
       }
     } catch (error) {
       console.error('Error fetching class levels:', error);
+      setError('Failed to load class levels');
     }
   };
 
@@ -172,7 +175,6 @@ function SchoolFees() {
       setSelectedStudent(null);
       fetchFeeSummary();
       
-      // Show receipt option
       if (response.data.receipt_number) {
         setTimeout(() => {
           if (window.confirm(`Payment recorded! Receipt number: ${response.data.receipt_number}\n\nWould you like to print the receipt?`)) {
@@ -205,12 +207,41 @@ function SchoolFees() {
       
       setMessage(`↶ Payment of ₵${amount} for ${studentName} has been undone!`);
       fetchFeeSummary();
-      if (showHistory) {
+      if (showHistory && selectedStudent) {
         fetchStudentHistory(selectedStudent);
       }
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
       setError('Failed to undo payment');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeletePaymentFromHistory = async (paymentId, amount, studentName, term, year) => {
+    if (!window.confirm(`⚠️ DELETE PAYMENT\n\nDelete payment of ₵${amount} for ${studentName} (${term} ${year})?\n\nThis action cannot be undone.`)) {
+      return;
+    }
+
+    setLoading(true);
+    const token = localStorage.getItem('token');
+    
+    try {
+      await axios.delete(`${apiUrl}/api/school-fees/payment/${paymentId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setMessage(`🗑️ Payment of ₵${amount} for ${studentName} has been deleted!`);
+      fetchFeeSummary();
+      
+      if (showHistory && selectedStudent) {
+        fetchStudentHistory(selectedStudent);
+      }
+      
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err) {
+      setError('Failed to delete payment');
       setTimeout(() => setError(''), 3000);
     } finally {
       setLoading(false);
@@ -247,9 +278,6 @@ function SchoolFees() {
             .amount-paid { color: #2ecc71; font-weight: bold; }
             .arrears { color: #e74c3c; font-weight: bold; }
             .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #ddd; padding-top: 20px; }
-            .status-paid { background: #d4edda; color: #155724; padding: 2px 8px; border-radius: 20px; font-size: 11px; display: inline-block; }
-            .status-partial { background: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 20px; font-size: 11px; display: inline-block; }
-            .status-unpaid { background: #f8d7da; color: #721c24; padding: 2px 8px; border-radius: 20px; font-size: 11px; display: inline-block; }
           </style>
         </head>
         <body>
@@ -323,7 +351,7 @@ function SchoolFees() {
             <div class="info-row"><span>Receipt No:</span><strong>${receiptData.receipt_number}</strong></div>
             <div class="info-row"><span>Date:</span>${new Date(receiptData.payment_date).toLocaleDateString()}</div>
             <hr>
-            <div class="info-row"><span>Student Name:</span><strong>${receiptData.student_name || receiptData.full_name}</strong></div>
+            <div class="info-row"><span>Student Name:</span><strong>${receiptData.full_name}</strong></div>
             <div class="info-row"><span>Admission No:</span>${receiptData.admission_number}</div>
             <div class="info-row"><span>Class:</span>${receiptData.class_name}</div>
             <div class="info-row"><span>Term:</span>${receiptData.term} ${receiptData.academic_year}</div>
@@ -331,11 +359,7 @@ function SchoolFees() {
             <div class="info-row"><span>Payment Method:</span>${receiptData.payment_method?.toUpperCase()}</div>
             <div class="amount">Amount Paid: ₵${receiptData.amount_paid}</div>
             <hr>
-            <div class="info-row"><span>Collected By:</span>${receiptData.collected_by_name || 'Cashier'}</div>
-            <div class="footer">
-              Thank you for your payment!<br>
-              This is a computer-generated receipt.
-            </div>
+            <div class="footer">Thank you for your payment!<br>This is a computer-generated receipt.</div>
           </div>
           <script>window.onload = function() { window.print(); }</script>
         </body>
@@ -350,9 +374,9 @@ function SchoolFees() {
   };
 
   const getStatusBadge = (status) => {
-    if (status === 'paid') return <span style={{ background: '#2ecc71', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px' }}>✓ FULLY PAID</span>;
-    if (status === 'partial') return <span style={{ background: '#f39c12', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px' }}>⚠ PARTIAL</span>;
-    return <span style={{ background: '#e74c3c', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px' }}>✗ NOT PAID</span>;
+    if (status === 'paid') return <span style={{ background: '#2ecc71', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>✓ FULLY PAID</span>;
+    if (status === 'partial') return <span style={{ background: '#f39c12', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>⚠ PARTIAL</span>;
+    return <span style={{ background: '#e74c3c', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>✗ NOT PAID</span>;
   };
 
   return (
@@ -365,24 +389,24 @@ function SchoolFees() {
         {/* Filters */}
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
           <div style={{ flex: 1 }}>
-            <label>Select Class:</label>
-            <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="form-control">
+            <label style={{ fontWeight: '600', display: 'block', marginBottom: '0.3rem' }}>Select Class:</label>
+            <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px' }}>
               {classLevels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div style={{ flex: 1 }}>
-            <label>Select Term:</label>
-            <select value={selectedTerm} onChange={(e) => setSelectedTerm(e.target.value)} className="form-control">
+            <label style={{ fontWeight: '600', display: 'block', marginBottom: '0.3rem' }}>Select Term:</label>
+            <select value={selectedTerm} onChange={(e) => setSelectedTerm(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px' }}>
               <option value="Term 1">Term 1</option><option value="Term 2">Term 2</option><option value="Term 3">Term 3</option>
             </select>
           </div>
           <div style={{ flex: 1 }}>
-            <label>Academic Year:</label>
-            <input type="text" value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} className="form-control" />
+            <label style={{ fontWeight: '600', display: 'block', marginBottom: '0.3rem' }}>Academic Year:</label>
+            <input type="text" value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px' }} />
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '5px' }}>
-            <button onClick={handlePrintClassReport} style={{ background: '#2ecc71', padding: '8px 16px' }}>🖨️ Print Report</button>
-            <button onClick={() => setShowSettingsModal(true)} style={{ background: '#f39c12', padding: '8px 16px' }}>⚙️ Set Fee</button>
+            <button onClick={handlePrintClassReport} style={{ background: '#2ecc71', padding: '8px 16px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>🖨️ Print Report</button>
+            <button onClick={() => setShowSettingsModal(true)} style={{ background: '#f39c12', padding: '8px 16px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>⚙️ Set Fee</button>
           </div>
         </div>
 
@@ -413,27 +437,33 @@ function SchoolFees() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#1e3c72', color: 'white' }}>
-                  <th>Admission No</th><th>Student Name</th><th>Expected</th><th>Paid</th><th>Arrears</th><th>Status</th><th>Actions</th>
+                  <th style={{ padding: '10px', textAlign: 'left' }}>Admission No</th>
+                  <th style={{ padding: '10px', textAlign: 'left' }}>Student Name</th>
+                  <th style={{ padding: '10px', textAlign: 'left' }}>Expected</th>
+                  <th style={{ padding: '10px', textAlign: 'left' }}>Paid</th>
+                  <th style={{ padding: '10px', textAlign: 'left' }}>Arrears</th>
+                  <th style={{ padding: '10px', textAlign: 'left' }}>Status</th>
+                  <th style={{ padding: '10px', textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {feeData.students.map(student => (
                   <tr key={student.id} style={{ borderBottom: '1px solid #ddd', background: student.status === 'partial' ? '#fff3cd' : student.status === 'unpaid' ? '#f8d7da' : 'white' }}>
-                    <td>{student.admission_number}</td>
-                    <td><strong>{student.full_name}</strong></td>
-                    <td>₵{student.expected_amount}</td>
-                    <td style={{ color: '#2ecc71' }}>₵{student.amount_paid}</td>
-                    <td style={{ color: '#e74c3c', fontWeight: 'bold' }}>₵{student.arrears}</td>
-                    <td>{getStatusBadge(student.status)}</td>
-                    <td>
+                    <td style={{ padding: '8px' }}>{student.admission_number}</td>
+                    <td style={{ padding: '8px' }}><strong>{student.full_name}</strong></td>
+                    <td style={{ padding: '8px' }}>₵{student.expected_amount}</td>
+                    <td style={{ padding: '8px', color: '#2ecc71', fontWeight: 'bold' }}>₵{student.amount_paid}</td>
+                    <td style={{ padding: '8px', color: '#e74c3c', fontWeight: 'bold' }}>₵{student.arrears}</td>
+                    <td style={{ padding: '8px' }}>{getStatusBadge(student.status)}</td>
+                    <td style={{ padding: '8px', textAlign: 'center' }}>
                       {student.status !== 'paid' ? (
-                        <button onClick={() => { setSelectedStudent(student); setPaymentAmount(''); setShowPaymentModal(true); }} style={{ background: '#3498db', padding: '4px 12px', marginRight: '5px' }}>Pay</button>
+                        <button onClick={() => { setSelectedStudent(student); setPaymentAmount(''); setShowPaymentModal(true); }} style={{ background: '#3498db', padding: '4px 12px', marginRight: '5px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>💰 Pay</button>
                       ) : (
-                        <button onClick={() => handleUndoPayment(student.payment_id, student.full_name, student.amount_paid)} style={{ background: '#e74c3c', padding: '4px 12px', marginRight: '5px' }}>Undo</button>
+                        <button onClick={() => handleUndoPayment(student.payment_id, student.full_name, student.amount_paid)} style={{ background: '#e74c3c', padding: '4px 12px', marginRight: '5px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>↶ Undo</button>
                       )}
-                      <button onClick={() => fetchStudentHistory(student)} style={{ background: '#95a5a6', padding: '4px 12px', marginRight: '5px' }}>History</button>
+                      <button onClick={() => fetchStudentHistory(student)} style={{ background: '#95a5a6', padding: '4px 12px', marginRight: '5px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>📜 History</button>
                       {student.receipt_number && (
-                        <button onClick={() => fetchReceipt(student.receipt_number)} style={{ background: '#2ecc71', padding: '4px 8px' }}>Receipt</button>
+                        <button onClick={() => fetchReceipt(student.receipt_number)} style={{ background: '#2ecc71', padding: '4px 8px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>🧾 Receipt</button>
                       )}
                     </td>
                   </tr>
@@ -452,8 +482,8 @@ function SchoolFees() {
               {showSettingsMessage && <div className={showSettingsMessage.includes('✅') ? 'success' : 'error'} style={{ marginBottom: '1rem' }}>{showSettingsMessage}</div>}
               <div><label>Fee Amount (₵):</label><input type="number" value={classFeeAmount} onChange={(e) => setClassFeeAmount(e.target.value)} placeholder="Enter fee amount" style={{ width: '100%', padding: '0.5rem', margin: '0.5rem 0' }} /></div>
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-                <button onClick={() => { setShowSettingsModal(false); setShowSettingsMessage(''); }} style={{ background: '#95a5a6' }}>Cancel</button>
-                <button onClick={handleUpdateFeeSetting} style={{ background: '#2ecc71' }}>Save</button>
+                <button onClick={() => { setShowSettingsModal(false); setShowSettingsMessage(''); }} style={{ background: '#95a5a6', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
+                <button onClick={handleUpdateFeeSetting} style={{ background: '#2ecc71', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Save</button>
               </div>
             </div>
           </div>
@@ -463,40 +493,66 @@ function SchoolFees() {
         {showPaymentModal && selectedStudent && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
             <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', width: '400px' }}>
-              <h3>Record Payment</h3>
+              <h3>💰 Record Payment</h3>
               <p><strong>Student:</strong> {selectedStudent.full_name}</p>
               <p><strong>Expected Amount:</strong> ₵{selectedStudent.expected_amount}</p>
               <p><strong>Current Arrears:</strong> ₵{selectedStudent.arrears}</p>
               <div><label>Amount to Pay (₵):</label><input type="number" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} placeholder="Enter amount" style={{ width: '100%', padding: '0.5rem', margin: '0.5rem 0' }} /></div>
               <div><label>Payment Method:</label><select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} style={{ width: '100%', padding: '0.5rem', margin: '0.5rem 0' }}><option value="cash">Cash</option><option value="mobile_money">Mobile Money</option><option value="bank_transfer">Bank Transfer</option><option value="card">Card</option></select></div>
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-                <button onClick={() => { setShowPaymentModal(false); setSelectedStudent(null); }} style={{ background: '#95a5a6' }}>Cancel</button>
-                <button onClick={handleRecordPayment} style={{ background: '#2ecc71' }}>Record Payment</button>
+                <button onClick={() => { setShowPaymentModal(false); setSelectedStudent(null); }} style={{ background: '#95a5a6', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
+                <button onClick={handleRecordPayment} style={{ background: '#2ecc71', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Record Payment</button>
               </div>
             </div>
           </div>
         )}
 
-        {/* History Modal */}
+        {/* History Modal with Delete Buttons */}
         {showHistory && studentHistory && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', width: '500px', maxHeight: '80%', overflowY: 'auto' }}>
-              <h3>Payment History - {studentHistory.student?.full_name}</h3>
-              {studentHistory.payments?.length === 0 ? <p>No payment records found.</p> : (
-                <table style={{ width: '100%' }}>
-                  <thead><tr style={{ background: '#1e3c72', color: 'white' }}><th>Term</th><th>Year</th><th>Amount</th><th>Date</th><th>Receipt</th></tr></thead>
-                  <tbody>
-                    {studentHistory.payments?.map(p => (
-                      <tr key={p.id}>
-                        <td>{p.term}</td><td>{p.academic_year}</td><td style={{ color: '#2ecc71' }}>₵{p.amount_paid}</td>
-                        <td>{new Date(p.payment_date).toLocaleDateString()}</td>
-                        <td><button onClick={() => fetchReceipt(p.receipt_number)} style={{ background: '#2ecc71', padding: '2px 6px', fontSize: '10px' }}>View</button></td>
+            <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', width: '700px', maxHeight: '80%', overflowY: 'auto' }}>
+              <h3>💰 Payment History - {studentHistory.student?.full_name}</h3>
+              <p><strong>Class:</strong> {studentHistory.student?.class_name}</p>
+              <p><strong>Admission No:</strong> {studentHistory.student?.admission_number}</p>
+              
+              {studentHistory.payments?.length === 0 ? (
+                <p>No payment records found.</p>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: '#1e3c72', color: 'white' }}>
+                        <th style={{ padding: '8px' }}>Term</th>
+                        <th style={{ padding: '8px' }}>Year</th>
+                        <th style={{ padding: '8px' }}>Amount</th>
+                        <th style={{ padding: '8px' }}>Date</th>
+                        <th style={{ padding: '8px' }}>Receipt</th>
+                        <th style={{ padding: '8px', textAlign: 'center' }}>Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {studentHistory.payments?.map(p => (
+                        <tr key={p.id} style={{ borderBottom: '1px solid #ddd' }}>
+                          <td style={{ padding: '8px' }}>{p.term}</td>
+                          <td style={{ padding: '8px' }}>{p.academic_year}</td>
+                          <td style={{ padding: '8px', color: '#2ecc71', fontWeight: 'bold' }}>₵{p.amount_paid}</td>
+                          <td style={{ padding: '8px' }}>{new Date(p.payment_date).toLocaleDateString()}</td>
+                          <td style={{ padding: '8px' }}>
+                            <button onClick={() => fetchReceipt(p.receipt_number)} style={{ background: '#2ecc71', padding: '4px 8px', fontSize: '10px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>🧾 View</button>
+                          </td>
+                          <td style={{ padding: '8px', textAlign: 'center' }}>
+                            <button onClick={() => handleDeletePaymentFromHistory(p.id, p.amount_paid, studentHistory.student?.full_name, p.term, p.academic_year)} style={{ background: '#e74c3c', padding: '4px 8px', fontSize: '10px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>🗑️ Delete</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
-              <button onClick={() => { setShowHistory(false); setStudentHistory(null); }} style={{ background: '#95a5a6', marginTop: '1rem' }}>Close</button>
+              
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+                <button onClick={() => { setShowHistory(false); setStudentHistory(null); }} style={{ background: '#95a5a6', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Close</button>
+              </div>
             </div>
           </div>
         )}
@@ -512,7 +568,7 @@ function SchoolFees() {
               <div style={{ borderTop: '1px dashed #ddd', borderBottom: '1px dashed #ddd', padding: '10px 0' }}>
                 <p><strong>Receipt No:</strong> {receiptData.receipt_number}</p>
                 <p><strong>Date:</strong> {new Date(receiptData.payment_date).toLocaleDateString()}</p>
-                <p><strong>Student:</strong> {receiptData.student_name || receiptData.full_name}</p>
+                <p><strong>Student:</strong> {receiptData.full_name}</p>
                 <p><strong>Admission No:</strong> {receiptData.admission_number}</p>
                 <p><strong>Class:</strong> {receiptData.class_name}</p>
                 <p><strong>Term:</strong> {receiptData.term} {receiptData.academic_year}</p>
@@ -520,8 +576,8 @@ function SchoolFees() {
                 <p><strong>Payment Method:</strong> {receiptData.payment_method?.toUpperCase()}</p>
               </div>
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1rem' }}>
-                <button onClick={handlePrintReceipt} style={{ background: '#2ecc71' }}>🖨️ Print Receipt</button>
-                <button onClick={() => { setShowReceipt(false); setReceiptData(null); }} style={{ background: '#95a5a6' }}>Close</button>
+                <button onClick={handlePrintReceipt} style={{ background: '#2ecc71', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>🖨️ Print Receipt</button>
+                <button onClick={() => { setShowReceipt(false); setReceiptData(null); }} style={{ background: '#95a5a6', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Close</button>
               </div>
             </div>
           </div>
