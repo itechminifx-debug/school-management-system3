@@ -1,42 +1,58 @@
 /* ========================================
-   PROFESSIONAL SCHOOL MANAGEMENT SYSTEM
-   Modern Enterprise Design
+   CATCHY SCHOOL MANAGEMENT SYSTEM
+   Vibrant Colors + Modern Design + Animations
    ======================================== */
 
 /* Import Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,100..900;1,100..900&display=swap');
 
-/* CSS Variables for Theming */
+/* CSS Variables - Catchy Color Palette */
 :root {
-  --primary: #1e3c72;
-  --primary-dark: #0f2a4a;
-  --primary-light: #2a5298;
-  --secondary: #00b4d8;
-  --accent: #f4a261;
-  --success: #2ecc71;
-  --danger: #e74c3c;
-  --warning: #f39c12;
-  --info: #3498db;
-  --dark: #2c3e50;
-  --light: #ecf0f1;
+  --primary: #6366f1;
+  --primary-dark: #4f46e5;
+  --primary-light: #818cf8;
+  --secondary: #06b6d4;
+  --secondary-dark: #0891b2;
+  --accent: #f59e0b;
+  --accent-dark: #d97706;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --info: #3b82f6;
+  --dark: #1e293b;
+  --light: #f8fafc;
   --white: #ffffff;
-  --gray-100: #f8f9fa;
-  --gray-200: #e9ecef;
-  --gray-300: #dee2e6;
-  --gray-400: #ced4da;
-  --gray-500: #adb5bd;
-  --gray-600: #6c757d;
-  --gray-700: #495057;
-  --gray-800: #343a40;
-  --gray-900: #212529;
+  --gray-100: #f1f5f9;
+  --gray-200: #e2e8f0;
+  --gray-300: #cbd5e1;
+  --gray-400: #94a3b8;
+  --gray-500: #64748b;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1e293b;
+  --gray-900: #0f172a;
+  
+  /* Gradient Colors */
+  --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #06b6d4 100%);
+  --gradient-secondary: linear-gradient(135deg, #f59e0b 0%, #ef4444 50%, #ec4899 100%);
+  --gradient-success: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  --gradient-danger: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+  --gradient-bg: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  
+  /* Shadows */
   --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
   --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
   --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
   --shadow-xl: 0 20px 25px rgba(0,0,0,0.15);
+  --shadow-2xl: 0 25px 50px rgba(0,0,0,0.25);
+  --shadow-glow: 0 0 20px rgba(99,102,241,0.3);
+  
+  /* Border Radius */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 24px;
+  --radius-2xl: 32px;
 }
 
 * {
@@ -47,25 +63,37 @@
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  background-attachment: fixed;
   color: var(--gray-800);
   min-height: 100vh;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="rgba(255,255,255,0.03)" fill-opacity="1" d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,122.7C672,117,768,139,864,154.7C960,171,1056,181,1152,165.3C1248,149,1344,107,1392,85.3L1440,64L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>') repeat-x bottom;
+  opacity: 0.2;
+  pointer-events: none;
+  animation: wave 20s linear infinite;
+}
+
+@keyframes wave {
+  0% { background-position-x: 0; }
+  100% { background-position-x: 1440px; }
 }
 
 /* ========================================
-   APP LAYOUT
-   ======================================== */
-
-.App {
-  min-height: 100vh;
-}
-
-/* ========================================
-   NAVBAR - Professional Glass Effect
+   GLASS MORPHISM NAVBAR
    ======================================== */
 
 .navbar {
-  background: rgba(255, 255, 255, 0.98);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   padding: 1rem 2rem;
   display: flex;
@@ -73,27 +101,47 @@ body {
   align-items: center;
   flex-wrap: wrap;
   gap: 1rem;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
   position: sticky;
   top: 0;
   z-index: 1000;
-  border-bottom: 1px solid rgba(0,0,0,0.05);
+  border-bottom: 2px solid rgba(99,102,241,0.2);
+  animation: slideDown 0.5s ease;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .navbar h1 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  font-size: 1.6rem;
+  font-weight: 800;
+  background: var(--gradient-primary);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: -0.02em;
+  position: relative;
 }
 
 .navbar h1::before {
   content: "🏫";
   margin-right: 8px;
   -webkit-text-fill-color: initial;
+  background: none;
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
 }
 
 .nav-links {
@@ -107,39 +155,57 @@ body {
   text-decoration: none;
   color: var(--gray-600);
   padding: 0.6rem 1.2rem;
-  border-radius: var(--radius-sm);
-  transition: all 0.2s ease;
+  border-radius: var(--radius-md);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-weight: 500;
   font-size: 0.9rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-links a::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 3px;
+  background: var(--gradient-primary);
+  transition: width 0.3s ease;
+}
+
+.nav-links a:hover::before {
+  width: 80%;
 }
 
 .nav-links a:hover {
-  background: var(--gray-100);
   color: var(--primary);
+  transform: translateY(-2px);
 }
 
 .nav-links a.active {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  background: var(--gradient-primary);
   color: white;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-glow);
 }
 
 .logout-btn {
-  background: linear-gradient(135deg, var(--danger) 0%, #c0392b 100%);
+  background: var(--gradient-danger);
   color: white;
   border: none;
   padding: 0.6rem 1.2rem;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s;
   font-weight: 600;
   font-size: 0.9rem;
   margin-left: 0.5rem;
 }
 
 .logout-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 
 /* ========================================
@@ -150,24 +216,38 @@ body {
   max-width: 1400px;
   margin: 2rem auto;
   padding: 0 2rem;
+  animation: fadeInUp 0.6s ease;
+}
+
+@keyframes fadeInUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 /* ========================================
-   CARDS - Professional Glass Morphism
+   GLASS CARDS
    ======================================== */
 
 .card {
-  background: white;
-  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-xl);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
-  box-shadow: var(--shadow-md);
-  transition: all 0.2s ease;
-  border: 1px solid rgba(0,0,0,0.05);
+  box-shadow: var(--shadow-lg);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(255,255,255,0.2);
 }
 
 .card:hover {
-  box-shadow: var(--shadow-lg);
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-2xl);
 }
 
 /* ========================================
@@ -175,17 +255,36 @@ body {
    ======================================== */
 
 h1, h2, h3, h4, h5, h6 {
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
 h2 {
   font-size: 1.75rem;
-  color: var(--gray-800);
+  background: var(--gradient-primary);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   margin-bottom: 1.5rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 3px solid var(--primary);
   display: inline-block;
+  position: relative;
+}
+
+h2::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 0;
+  width: 60%;
+  height: 3px;
+  background: var(--gradient-primary);
+  border-radius: 3px;
+  animation: widthGrow 0.5s ease;
+}
+
+@keyframes widthGrow {
+  from { width: 0; }
+  to { width: 60%; }
 }
 
 h3 {
@@ -206,7 +305,7 @@ form {
 
 input, select, textarea {
   padding: 0.875rem 1rem;
-  border: 1.5px solid var(--gray-200);
+  border: 2px solid var(--gray-200);
   border-radius: var(--radius-md);
   font-size: 0.95rem;
   font-family: inherit;
@@ -217,7 +316,8 @@ input, select, textarea {
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(30, 60, 114, 0.1);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+  transform: translateY(-1px);
 }
 
 /* ========================================
@@ -225,7 +325,7 @@ input:focus, select:focus, textarea:focus {
    ======================================== */
 
 button {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  background: var(--gradient-primary);
   color: white;
   border: none;
   padding: 0.875rem 1.5rem;
@@ -233,12 +333,32 @@ button {
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+button:hover::before {
+  width: 300px;
+  height: 300px;
 }
 
 button:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-glow);
 }
 
 button:active {
@@ -246,7 +366,7 @@ button:active {
 }
 
 /* ========================================
-   STATS GRID - Dashboard Cards
+   STATS GRID - CATCHY CARDS
    ======================================== */
 
 .stats-grid {
@@ -257,36 +377,61 @@ button:active {
 }
 
 .stat-card {
-  background: white;
+  background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.9));
+  backdrop-filter: blur(10px);
   padding: 1.5rem;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   text-align: center;
-  transition: all 0.2s ease;
-  border: 1px solid rgba(0,0,0,0.05);
+  transition: all 0.3s;
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(99,102,241,0.1), transparent);
+  opacity: 0;
+  transition: opacity 0.6s;
+}
+
+.stat-card:hover::before {
+  opacity: 1;
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
+  transform: translateY(-10px) scale(1.02);
+  box-shadow: var(--shadow-2xl);
 }
 
 .stat-card h3 {
   font-size: 2.5rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  font-weight: 800;
+  background: var(--gradient-primary);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   margin-bottom: 0.5rem;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
 }
 
 .stat-card p {
   color: var(--gray-500);
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 1px;
 }
 
 /* ========================================
@@ -305,7 +450,7 @@ table {
 }
 
 th {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  background: var(--gradient-primary);
   color: white;
   padding: 1rem;
   text-align: left;
@@ -318,25 +463,26 @@ td {
 }
 
 tr:hover td {
-  background: var(--gray-50);
+  background: rgba(99,102,241,0.05);
 }
 
 /* ========================================
-   STATUS BADGES
+   STATUS BADGES - CATCHY COLORS
    ======================================== */
 
 .status-present {
-  background: linear-gradient(135deg, var(--success) 0%, #27ae60 100%);
+  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
   color: white;
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
   font-size: 0.75rem;
   font-weight: 600;
   display: inline-block;
+  animation: glow 1s infinite;
 }
 
 .status-absent {
-  background: linear-gradient(135deg, var(--danger) 0%, #c0392b 100%);
+  background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
   color: white;
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
@@ -346,7 +492,7 @@ tr:hover td {
 }
 
 .status-late {
-  background: linear-gradient(135deg, var(--warning) 0%, #e67e22 100%);
+  background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
   color: white;
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
@@ -356,7 +502,7 @@ tr:hover td {
 }
 
 .status-excused {
-  background: linear-gradient(135deg, var(--gray-500) 0%, var(--gray-600) 100%);
+  background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
   color: white;
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
@@ -365,30 +511,48 @@ tr:hover td {
   display: inline-block;
 }
 
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 5px rgba(16,185,129,0.3); }
+  50% { box-shadow: 0 0 20px rgba(16,185,129,0.6); }
+}
+
 /* ========================================
    ALERT MESSAGES
    ======================================== */
 
 .success {
-  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-  color: #155724;
+  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  color: white;
   padding: 1rem;
   border-radius: var(--radius-md);
   margin-bottom: 1rem;
-  border-left: 4px solid var(--success);
+  font-weight: 500;
+  animation: slideIn 0.5s;
 }
 
 .error {
-  background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
-  color: #721c24;
+  background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+  color: white;
   padding: 1rem;
   border-radius: var(--radius-md);
   margin-bottom: 1rem;
-  border-left: 4px solid var(--danger);
+  font-weight: 500;
+  animation: slideIn 0.5s;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 /* ========================================
-   LOGIN PAGE
+   LOGIN PAGE - CATCHY
    ======================================== */
 
 .login-container {
@@ -396,35 +560,43 @@ tr:hover td {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  background: var(--gradient-bg);
+  position: relative;
+  overflow: hidden;
+}
+
+.login-container::before {
+  content: '';
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.1), transparent);
+  animation: rotate 20s linear infinite;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .login-card {
-  background: white;
-  border-radius: var(--radius-xl);
-  padding: 2.5rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-2xl);
+  padding: 3rem;
   width: 100%;
-  max-width: 420px;
-  box-shadow: var(--shadow-xl);
-  animation: fadeInUp 0.5s ease;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  max-width: 450px;
+  box-shadow: var(--shadow-2xl);
+  animation: fadeInUp 0.6s;
+  z-index: 1;
+  border: 1px solid rgba(255,255,255,0.2);
 }
 
 .login-card h2 {
   text-align: center;
-  font-size: 1.75rem;
+  font-size: 1.8rem;
   margin-bottom: 0.5rem;
-  border-bottom: none;
+  display: block;
 }
 
 .login-card h2::after {
@@ -434,7 +606,7 @@ tr:hover td {
 .login-card h3 {
   text-align: center;
   color: var(--gray-500);
-  font-size: 0.9rem;
+  font-size: 1rem;
   margin-bottom: 2rem;
 }
 
