@@ -13,6 +13,7 @@ function SchoolFees() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [expectedAmount, setExpectedAmount] = useState('500');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [studentHistory, setStudentHistory] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -94,12 +95,13 @@ function SchoolFees() {
         term: selectedTerm,
         academic_year: academicYear,
         payment_method: paymentMethod,
+        expected_amount: parseFloat(expectedAmount),
         notes: `School fee payment for ${selectedTerm} ${academicYear}`
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      setMessage(`Payment of ₵${paymentAmount} recorded successfully for ${selectedStudent.full_name}!`);
+      setMessage(`✅ Payment of ₵${paymentAmount} recorded successfully for ${selectedStudent.full_name}!`);
       setPaymentAmount('');
       setShowPaymentModal(false);
       setSelectedStudent(null);
@@ -114,7 +116,7 @@ function SchoolFees() {
   };
 
   const handleUndoPayment = async (paymentId, studentName, amount) => {
-    if (!window.confirm(`Undo payment of ₵${amount} for ${studentName}? This action cannot be undone.`)) {
+    if (!window.confirm(`⚠️ UNDO PAYMENT\n\nUndo payment of ₵${amount} for ${studentName}? This action cannot be undone.`)) {
       return;
     }
 
@@ -126,7 +128,7 @@ function SchoolFees() {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      setMessage(`Payment of ₵${amount} for ${studentName} has been undone!`);
+      setMessage(`↶ Payment of ₵${amount} for ${studentName} has been undone!`);
       fetchFeeSummary();
       if (showHistory) {
         fetchStudentHistory(selectedStudent);
@@ -140,74 +142,169 @@ function SchoolFees() {
     }
   };
 
+  const handlePrint = () => {
+    if (!feeData) return;
+    
+    const printWindow = window.open('', '_blank');
+    const className = classLevels.find(c => c.id === parseInt(selectedClass))?.name || 'Class';
+    const paidStudents = feeData.students.filter(s => s.status === 'paid');
+    const partialStudents = feeData.students.filter(s => s.status === 'partial');
+    const unpaidStudents = feeData.students.filter(s => s.status === 'unpaid');
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>School Fees Report - ${className} - ${selectedTerm} ${academicYear}</title>
+          <style>
+            body { font-family: 'Segoe UI', Arial, sans-serif; margin: 40px; }
+            h1 { color: #1e3c72; text-align: center; }
+            h2 { color: #2c3e50; border-bottom: 2px solid #1e3c72; padding-bottom: 5px; margin-top: 30px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .school-name { font-size: 24px; font-weight: bold; color: #1e3c72; }
+            .report-title { font-size: 18px; margin-top: 10px; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+            th { background: #1e3c72; color: white; }
+            .summary { margin: 20px 0; padding: 15px; background: #f0f4f8; border-radius: 8px; }
+            .summary-grid { display: flex; gap: 20px; flex-wrap: wrap; }
+            .summary-card { flex: 1; text-align: center; padding: 10px; background: white; border-radius: 8px; }
+            .amount-paid { color: #2ecc71; font-weight: bold; }
+            .arrears { color: #e74c3c; font-weight: bold; }
+            .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #ddd; padding-top: 20px; }
+            .status-paid { background: #d4edda; color: #155724; padding: 2px 8px; border-radius: 20px; font-size: 11px; display: inline-block; }
+            .status-partial { background: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 20px; font-size: 11px; display: inline-block; }
+            .status-unpaid { background: #f8d7da; color: #721c24; padding: 2px 8px; border-radius: 20px; font-size: 11px; display: inline-block; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="school-name">🏫 GREENWOOD HIGH SCHOOL</div>
+            <div class="report-title">SCHOOL FEES COLLECTION REPORT</div>
+            <div>${className} - ${selectedTerm}, ${academicYear} Academic Year</div>
+            <div>Printed: ${new Date().toLocaleString()}</div>
+          </div>
+          
+          <div class="summary">
+            <div class="summary-grid">
+              <div class="summary-card">
+                <strong>Total Students</strong><br>
+                ${feeData.total_students}
+              </div>
+              <div class="summary-card">
+                <strong>Total Expected</strong><br>
+                ₵${feeData.total_expected?.toLocaleString()}
+              </div>
+              <div class="summary-card">
+                <strong>Total Collected</strong><br>
+                <span class="amount-paid">₵${feeData.total_collected?.toLocaleString()}</span>
+              </div>
+              <div class="summary-card">
+                <strong>Total Arrears</strong><br>
+                <span class="arrears">₵${feeData.total_arrears?.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+          
+          <h2>📋 FULL PAYMENT (${paidStudents.length} students)</h2>
+          ${paidStudents.length > 0 ? `
+            <table>
+              <thead><tr><th>#</th><th>Admission No</th><th>Student Name</th><th>Expected (₵)</th><th>Paid (₵)</th></tr></thead>
+              <tbody>
+                ${paidStudents.map((s, i) => `
+                  <tr><td>${i+1}</td><td>${s.admission_number}</td><td>${s.full_name}</td><td>${s.expected_amount}</td><td class="amount-paid">${s.amount_paid}</td></tr>
+                `).join('')}
+              </tbody>
+            </table>
+          ` : '<p>No students have fully paid</p>'}
+          
+          <h2>⚠️ PARTIAL PAYMENT (${partialStudents.length} students)</h2>
+          ${partialStudents.length > 0 ? `
+            <table>
+              <thead><tr><th>#</th><th>Admission No</th><th>Student Name</th><th>Expected (₵)</th><th>Paid (₵)</th><th>Arrears (₵)</th></tr></thead>
+              <tbody>
+                ${partialStudents.map((s, i) => `
+                  <tr><td>${i+1}</td><td>${s.admission_number}</td><td>${s.full_name}</td><td>${s.expected_amount}</td><td>${s.amount_paid}</td><td class="arrears">${s.arrears}</td></tr>
+                `).join('')}
+              </tbody>
+            </table>
+          ` : '<p>No students with partial payment</p>'}
+          
+          <h2>❌ NO PAYMENT (${unpaidStudents.length} students)</h2>
+          ${unpaidStudents.length > 0 ? `
+            <table>
+              <thead><tr><th>#</th><th>Admission No</th><th>Student Name</th><th>Expected (₵)</th><th>Arrears (₵)</th></tr></thead>
+              <tbody>
+                ${unpaidStudents.map((s, i) => `
+                  <tr><td>${i+1}</td><td>${s.admission_number}</td><td>${s.full_name}</td><td>${s.expected_amount}</td><td class="arrears">${s.expected_amount}</td></tr>
+                `).join('')}
+              </tbody>
+            </table>
+          ` : '<p>All students have paid something</p>'}
+          
+          <div class="footer">
+            Generated by School Management System<br>
+            This is a computer-generated document. No signature required.
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   const getClassName = (id) => {
     const cls = classLevels.find(c => c.id === id);
     return cls ? cls.name : 'Select Class';
   };
 
+  const getStatusBadge = (status) => {
+    if (status === 'paid') return <span style={{ background: '#2ecc71', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px' }}>✓ FULLY PAID</span>;
+    if (status === 'partial') return <span style={{ background: '#f39c12', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px' }}>⚠ PARTIAL</span>;
+    return <span style={{ background: '#e74c3c', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px' }}>✗ NOT PAID</span>;
+  };
+
   return (
     <div className="container">
       <div className="card">
-        <h2>School Fees Management</h2>
+        <h2>🏫 School Fees Management</h2>
         {message && <div className="success">{message}</div>}
         {error && <div className="error">{error}</div>}
 
         {/* Filters */}
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
           <div style={{ flex: 1 }}>
-            <label style={{ fontWeight: '600', display: 'block', marginBottom: '0.3rem' }}>Select Class:</label>
-            <select 
-              value={selectedClass} 
-              onChange={(e) => setSelectedClass(e.target.value)} 
-              style={{ width: '100%', padding: '0.5rem', borderRadius: '8px' }}
-            >
-              {classLevels.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
+            <label>Select Class:</label>
+            <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="form-control">
+              {classLevels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div style={{ flex: 1 }}>
-            <label style={{ fontWeight: '600', display: 'block', marginBottom: '0.3rem' }}>Select Term:</label>
-            <select 
-              value={selectedTerm} 
-              onChange={(e) => setSelectedTerm(e.target.value)} 
-              style={{ width: '100%', padding: '0.5rem', borderRadius: '8px' }}
-            >
+            <label>Select Term:</label>
+            <select value={selectedTerm} onChange={(e) => setSelectedTerm(e.target.value)} className="form-control">
               <option value="Term 1">Term 1</option>
               <option value="Term 2">Term 2</option>
               <option value="Term 3">Term 3</option>
             </select>
           </div>
           <div style={{ flex: 1 }}>
-            <label style={{ fontWeight: '600', display: 'block', marginBottom: '0.3rem' }}>Academic Year:</label>
-            <input 
-              type="text" 
-              value={academicYear} 
-              onChange={(e) => setAcademicYear(e.target.value)} 
-              style={{ width: '100%', padding: '0.5rem', borderRadius: '8px' }}
-            />
+            <label>Academic Year:</label>
+            <input type="text" value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} className="form-control" />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+            <button onClick={handlePrint} style={{ background: '#2ecc71', padding: '8px 16px' }}>🖨️ Print Report</button>
           </div>
         </div>
 
         {/* Summary Stats */}
         {feeData && (
           <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-            <div className="stat-card">
-              <h3>{feeData.total_students}</h3>
-              <p>Total Students</p>
-            </div>
-            <div className="stat-card">
-              <h3>{feeData.paid_count}</h3>
-              <p>Paid</p>
-            </div>
-            <div className="stat-card">
-              <h3>{feeData.not_paid_count}</h3>
-              <p>Not Paid</p>
-            </div>
-            <div className="stat-card">
-              <h3>₵{feeData.total_collected?.toLocaleString()}</h3>
-              <p>Total Collected</p>
-            </div>
+            <div className="stat-card"><h3>{feeData.total_students}</h3><p>Total Students</p></div>
+            <div className="stat-card"><h3>{feeData.paid_count}</h3><p>Fully Paid ✓</p></div>
+            <div className="stat-card"><h3>{feeData.partial_count}</h3><p>Partial ⚠</p></div>
+            <div className="stat-card"><h3>{feeData.unpaid_count}</h3><p>Not Paid ✗</p></div>
+            <div className="stat-card"><h3>₵{feeData.total_collected?.toLocaleString()}</h3><p>Total Collected</p></div>
+            <div className="stat-card"><h3 style={{ color: '#e74c3c' }}>₵{feeData.total_arrears?.toLocaleString()}</h3><p>Total Arrears</p></div>
           </div>
         )}
 
@@ -219,57 +316,25 @@ function SchoolFees() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#1e3c72', color: 'white' }}>
-                  <th style={{ padding: '10px', textAlign: 'left' }}>Admission No</th>
-                  <th style={{ padding: '10px', textAlign: 'left' }}>Student Name</th>
-                  <th style={{ padding: '10px', textAlign: 'left' }}>Amount Paid</th>
-                  <th style={{ padding: '10px', textAlign: 'left' }}>Status</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>Actions</th>
+                  <th>Admission No</th><th>Student Name</th><th>Expected (₵)</th><th>Paid (₵)</th><th>Arrears (₵)</th><th>Status</th><th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {feeData.students.map(student => (
-                  <tr key={student.id} style={{ borderBottom: '1px solid #ddd' }}>
-                    <td style={{ padding: '8px' }}>{student.admission_number}</td>
-                    <td style={{ padding: '8px' }}><strong>{student.full_name}</strong></td>
-                    <td style={{ padding: '8px', color: student.has_paid ? '#2ecc71' : '#e74c3c' }}>
-                      {student.has_paid ? `₵${student.amount_paid}` : '₵0'}
-                    </td>
-                    <td style={{ padding: '8px' }}>
-                      {student.has_paid ? (
-                        <span style={{ background: '#2ecc71', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px' }}>PAID</span>
+                  <tr key={student.id} style={{ borderBottom: '1px solid #ddd', background: student.status === 'partial' ? '#fff3cd' : student.status === 'unpaid' ? '#f8d7da' : 'white' }}>
+                    <td>{student.admission_number}</td>
+                    <td><strong>{student.full_name}</strong></td>
+                    <td>₵{student.expected_amount}</td>
+                    <td style={{ color: '#2ecc71' }}>₵{student.amount_paid}</td>
+                    <td style={{ color: '#e74c3c', fontWeight: 'bold' }}>₵{student.arrears}</td>
+                    <td>{getStatusBadge(student.status)}</td>
+                    <td>
+                      {student.status !== 'paid' ? (
+                        <button onClick={() => { setSelectedStudent(student); setExpectedAmount(student.expected_amount); setShowPaymentModal(true); }} style={{ background: '#3498db', padding: '4px 12px' }}>Pay</button>
                       ) : (
-                        <span style={{ background: '#e74c3c', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px' }}>NOT PAID</span>
+                        <button onClick={() => handleUndoPayment(student.payment_id, student.full_name, student.amount_paid)} style={{ background: '#e74c3c', padding: '4px 12px' }}>Undo</button>
                       )}
-                    </td>
-                    <td style={{ padding: '8px', textAlign: 'center' }}>
-                      {!student.has_paid ? (
-                        <button 
-                          onClick={() => {
-                            setSelectedStudent(student);
-                            setPaymentAmount('');
-                            setShowPaymentModal(true);
-                          }}
-                          style={{ background: '#3498db', padding: '4px 12px', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '5px' }}
-                        >
-                          Pay
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={() => handleUndoPayment(student.payment_id, student.full_name, student.amount_paid)}
-                          style={{ background: '#e74c3c', padding: '4px 12px', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '5px' }}
-                        >
-                          Undo
-                        </button>
-                      )}
-                      <button 
-                        onClick={() => {
-                          setSelectedStudent(student);
-                          fetchStudentHistory(student);
-                        }}
-                        style={{ background: '#95a5a6', padding: '4px 12px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        History
-                      </button>
+                      <button onClick={() => fetchStudentHistory(student)} style={{ background: '#95a5a6', padding: '4px 12px', marginLeft: '5px' }}>History</button>
                     </td>
                   </tr>
                 ))}
@@ -281,39 +346,18 @@ function SchoolFees() {
         {/* Payment Modal */}
         {showPaymentModal && selectedStudent && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', width: '400px', maxWidth: '90%' }}>
-              <h3>Record School Fee Payment</h3>
+            <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', width: '400px' }}>
+              <h3>Record Payment</h3>
               <p><strong>Student:</strong> {selectedStudent.full_name}</p>
-              <p><strong>Term:</strong> {selectedTerm} {academicYear}</p>
+              <p><strong>Expected Amount:</strong> ₵{selectedStudent.expected_amount}</p>
+              <p><strong>Current Arrears:</strong> ₵{selectedStudent.arrears}</p>
               
-              <div style={{ marginBottom: '1rem' }}>
-                <label>Amount (₵):</label>
-                <input 
-                  type="number" 
-                  value={paymentAmount} 
-                  onChange={(e) => setPaymentAmount(e.target.value)} 
-                  placeholder="Enter amount"
-                  style={{ width: '100%', padding: '0.5rem', marginTop: '0.3rem' }}
-                />
-              </div>
+              <div><label>Amount to Pay (₵):</label><input type="number" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} placeholder="Enter amount" style={{ width: '100%', padding: '0.5rem', margin: '0.5rem 0' }} /></div>
+              <div><label>Payment Method:</label><select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} style={{ width: '100%', padding: '0.5rem', margin: '0.5rem 0' }}><option value="cash">Cash</option><option value="mobile_money">Mobile Money</option><option value="bank_transfer">Bank Transfer</option><option value="card">Card</option></select></div>
               
-              <div style={{ marginBottom: '1rem' }}>
-                <label>Payment Method:</label>
-                <select 
-                  value={paymentMethod} 
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem', marginTop: '0.3rem' }}
-                >
-                  <option value="cash">Cash</option>
-                  <option value="mobile_money">Mobile Money</option>
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="card">Card</option>
-                </select>
-              </div>
-              
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                <button onClick={() => { setShowPaymentModal(false); setSelectedStudent(null); }} style={{ background: '#95a5a6', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={handleRecordPayment} style={{ background: '#2ecc71', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Record Payment</button>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                <button onClick={() => { setShowPaymentModal(false); setSelectedStudent(null); }} style={{ background: '#95a5a6' }}>Cancel</button>
+                <button onClick={handleRecordPayment} style={{ background: '#2ecc71' }}>Record Payment</button>
               </div>
             </div>
           </div>
@@ -322,39 +366,17 @@ function SchoolFees() {
         {/* History Modal */}
         {showHistory && studentHistory && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', width: '500px', maxWidth: '90%', maxHeight: '80%', overflowY: 'auto' }}>
+            <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', width: '500px', maxHeight: '80%', overflowY: 'auto' }}>
               <h3>Payment History - {studentHistory.student?.full_name}</h3>
-              <p><strong>Class:</strong> {studentHistory.student?.class_name}</p>
-              <p><strong>Admission No:</strong> {studentHistory.student?.admission_number}</p>
-              
-              {studentHistory.payments?.length === 0 ? (
-                <p>No payment records found.</p>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ background: '#1e3c72', color: 'white' }}>
-                      <th style={{ padding: '8px' }}>Term</th>
-                      <th style={{ padding: '8px' }}>Year</th>
-                      <th style={{ padding: '8px' }}>Amount</th>
-                      <th style={{ padding: '8px' }}>Date</th>
-                    </tr>
-                  </thead>
+              {studentHistory.payments?.length === 0 ? <p>No payment records found.</p> : (
+                <table style={{ width: '100%' }}>
+                  <thead><tr style={{ background: '#1e3c72', color: 'white' }}><th>Term</th><th>Year</th><th>Amount</th><th>Date</th></tr></thead>
                   <tbody>
-                    {studentHistory.payments?.map(p => (
-                      <tr key={p.id} style={{ borderBottom: '1px solid #ddd' }}>
-                        <td style={{ padding: '8px' }}>{p.term}</td>
-                        <td style={{ padding: '8px' }}>{p.academic_year}</td>
-                        <td style={{ padding: '8px', color: '#2ecc71' }}>₵{p.amount_paid}</td>
-                        <td style={{ padding: '8px' }}>{new Date(p.payment_date).toLocaleDateString()}</td>
-                      </tr>
-                    ))}
+                    {studentHistory.payments?.map(p => (<tr key={p.id}><td>{p.term}</td><td>{p.academic_year}</td><td>₵{p.amount_paid}</td><td>{new Date(p.payment_date).toLocaleDateString()}</td></tr>))}
                   </tbody>
                 </table>
               )}
-              
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
-                <button onClick={() => { setShowHistory(false); setStudentHistory(null); }} style={{ background: '#95a5a6', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Close</button>
-              </div>
+              <button onClick={() => { setShowHistory(false); setStudentHistory(null); }} style={{ background: '#95a5a6', marginTop: '1rem' }}>Close</button>
             </div>
           </div>
         )}
