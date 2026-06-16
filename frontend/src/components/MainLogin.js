@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { storeToken, storeUser } from '../utils/storage';
 
-function MainLogin() {
+function MainLogin({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('admin');
@@ -13,7 +12,7 @@ function MainLogin() {
 
   const apiUrl = 'https://school-management-api-5mml.onrender.com';
 
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -25,33 +24,30 @@ function MainLogin() {
     }
 
     try {
-      const response = await axios.post(`${apiUrl}/api/auth/login`, { email, password });
-      
-      await storeToken(response.data.token);
-      await storeUser(response.data.user);
-      
-      // Redirect based on role
-      const userRole = response.data.user.role;
-      if (userRole === 'admin') {
+      const response = await axios.post(`${apiUrl}/api/auth/login`, {
+        email,
+        password
+      });
+
+      if (response.data.token && response.data.user) {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        
+        if (onLogin) {
+          onLogin();
+        }
+        
+        // Redirect to dashboard
         navigate('/dashboard');
-      } else if (userRole === 'teacher') {
-        navigate('/teacher-dashboard');
-      } else if (userRole === 'parent') {
-        navigate('/parent-dashboard');
       } else {
-        navigate('/dashboard');
+        setError('Invalid response from server');
       }
     } catch (err) {
+      console.error('Login error:', err);
       setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleParentLogin = () => {
-    // For parent login, we'll use a different method
-    setRole('parent');
-    setError('Parent login requires Student ID and Password');
   };
 
   return (
@@ -75,6 +71,7 @@ function MainLogin() {
         {/* Portal Selection Buttons */}
         <div className="portal-selector">
           <button 
+            type="button"
             className={`portal-btn ${role === 'admin' ? 'active' : ''}`}
             onClick={() => setRole('admin')}
           >
@@ -83,6 +80,7 @@ function MainLogin() {
             <span className="portal-desc">Full system access</span>
           </button>
           <button 
+            type="button"
             className={`portal-btn ${role === 'teacher' ? 'active' : ''}`}
             onClick={() => setRole('teacher')}
           >
@@ -91,6 +89,7 @@ function MainLogin() {
             <span className="portal-desc">Manage classes & grades</span>
           </button>
           <button 
+            type="button"
             className={`portal-btn ${role === 'parent' ? 'active' : ''}`}
             onClick={() => setRole('parent')}
           >
@@ -101,7 +100,7 @@ function MainLogin() {
         </div>
 
         {/* Login Form */}
-        <form onSubmit={handleLogin} className="login-form">
+        <form onSubmit={handleSubmit} className="login-form">
           {error && <div className="error-message">{error}</div>}
           
           <div className="input-group">
@@ -112,6 +111,7 @@ function MainLogin() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="off"
             />
           </div>
 
