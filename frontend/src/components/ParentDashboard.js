@@ -78,13 +78,6 @@ function ParentDashboard() {
     fetchChildData(child.id);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('userRole');
-    window.location.href = '/parent-login';
-  };
-
   const getStatusClass = (status) => {
     return `status-${status}`;
   };
@@ -115,16 +108,7 @@ function ParentDashboard() {
   }
 
   return (
-    <div className="parent-dashboard">
-      {/* Parent Navigation */}
-      <nav className="parent-navbar">
-        <h1>🏫 {schoolSettings.school_name || 'School'}</h1>
-        <div className="parent-nav-links">
-          <span className="parent-name">👤 {parentInfo?.full_name || 'Parent'}</span>
-          <button onClick={handleLogout} className="parent-logout-btn">🚪 Logout</button>
-        </div>
-      </nav>
-
+    <div className="parent-dashboard-container">
       <div className="container">
         <div className="card" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', color: 'white' }}>
           <h2 style={{ color: 'white', borderLeftColor: 'white' }}>👨‍👩‍👧 Welcome, {parentInfo?.full_name || 'Parent'}!</h2>
