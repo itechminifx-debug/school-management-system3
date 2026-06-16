@@ -12,6 +12,7 @@ import Fees from './components/Fees';
 import AdvancePayment from './components/AdvancePayment';
 import SchoolFees from './components/SchoolFees';
 import SchoolSettings from './components/SchoolSettings';
+import MainLogin from './components/MainLogin';
 import './App.css';
 
 function Navigation({ onLogout }) {
@@ -88,6 +89,7 @@ function AppContent() {
           <Route path="/advance-payment" element={isAuthenticated ? <AdvancePayment /> : <Navigate to="/login" />} />
           <Route path="/school-fees" element={isAuthenticated ? <SchoolFees /> : <Navigate to="/login" />} />
           <Route path="/school-settings" element={isAuthenticated ? <SchoolSettings /> : <Navigate to="/login" />} />
+          <Route path="/login" element={<MainLogin onLogin={handleLogin} />} />
           <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
       </div>
