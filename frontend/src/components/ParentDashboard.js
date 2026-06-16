@@ -1,0 +1,342 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+function ParentDashboard() {
+  const [children, setChildren] = useState([]);
+  const [selectedChild, setSelectedChild] = useState(null);
+  const [grades, setGrades] = useState([]);
+  const [attendance, setAttendance] = useState([]);
+  const [attendanceSummary, setAttendanceSummary] = useState({});
+  const [fees, setFees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [error, setError] = useState('');
+  const [parentInfo, setParentInfo] = useState(null);
+
+  const apiUrl = 'https://school-management-api-5mml.onrender.com';
+
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      setParentInfo(JSON.parse(userData));
+    }
+    fetchChildren();
+  }, []);
+
+  const fetchChildren = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      const response = await axios.get(`${apiUrl}/api/parent/children`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setChildren(response.data.children);
+      if (response.data.children.length > 0) {
+        setSelectedChild(response.data.children[0]);
+        fetchChildData(response.data.children[0].id);
+      }
+    } catch (error) {
+      console.error('Error fetching children:', error);
+      setError('Failed to load children data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchChildData = async (studentId) => {
+    const token = localStorage.getItem('token');
+    const currentYear = new Date().getFullYear();
+    
+    try {
+      // Fetch grades
+      const gradesRes = await axios.get(`${apiUrl}/api/parent/grades/${studentId}/Term%201/${currentYear}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setGrades(gradesRes.data.grades || []);
+
+      // Fetch attendance
+      const attendanceRes = await axios.get(`${apiUrl}/api/parent/attendance/${studentId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAttendance(attendanceRes.data.attendance || []);
+      setAttendanceSummary(attendanceRes.data.summary || {});
+
+      // Fetch fees
+      const feesRes = await axios.get(`${apiUrl}/api/parent/fees/${studentId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setFees(feesRes.data.fees || []);
+    } catch (error) {
+      console.error('Error fetching child data:', error);
+      setError('Failed to load child data');
+    }
+  };
+
+  const handleChildSelect = (child) => {
+    setSelectedChild(child);
+    fetchChildData(child.id);
+  };
+
+  const getStatusClass = (status) => {
+    return `status-${status}`;
+  };
+
+  const getGradeLetter = (score) => {
+    if (!score) return '-';
+    const s = parseFloat(score);
+    if (s >= 80) return 'A';
+    if (s >= 70) return 'B';
+    if (s >= 60) return 'C';
+    if (s >= 50) return 'D';
+    return 'F';
+  };
+
+  if (loading) {
+    return <div className="container">Loading...</div>;
+  }
+
+  if (children.length === 0) {
+    return (
+      <div className="container">
+        <div className="card">
+          <h2>👨‍👩‍👧 Parent Dashboard</h2>
+          <div className="error">No children linked to your account. Please contact the school administrator.</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container">
+      <div className="card" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', color: 'white' }}>
+        <h2 style={{ color: 'white', borderLeftColor: 'white' }}>👨‍👩‍👧 Welcome, {parentInfo?.full_name || 'Parent'}!</h2>
+        <p style={{ opacity: 0.9 }}>View your child's academic progress and school information</p>
+      </div>
+
+      {/* Child Selector */}
+      <div className="card">
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          {children.map(child => (
+            <button
+              key={child.id}
+              onClick={() => handleChildSelect(child)}
+              style={{
+                background: selectedChild?.id === child.id ? '#6366f1' : '#f1f5f9',
+                color: selectedChild?.id === child.id ? 'white' : '#1e293b',
+                padding: '0.75rem 1.5rem',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }}
+            >
+              {child.full_name} ({child.class_name})
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {selectedChild && (
+        <>
+          {/* Student Info */}
+          <div className="card">
+            <h3>📋 Student Information</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+              <div><strong>Name:</strong> {selectedChild.full_name}</div>
+              <div><strong>Admission No:</strong> {selectedChild.admission_number}</div>
+              <div><strong>Class:</strong> {selectedChild.class_name}</div>
+              <div><strong>Relationship:</strong> {selectedChild.relationship}</div>
+            </div>
+          </div>
+
+          {/* Navigation Tabs */}
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+            {['overview', 'grades', 'attendance', 'fees'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  background: activeTab === tab ? '#6366f1' : 'white',
+                  color: activeTab === tab ? 'white' : '#1e293b',
+                  padding: '0.5rem 1.5rem',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          {/* Overview Tab */}
+          {activeTab === 'overview' && (
+            <div className="stats-grid">
+              <div className="stat-card">
+                <h3>{attendanceSummary.total || 0}</h3>
+                <p>Total Days</p>
+              </div>
+              <div className="stat-card">
+                <h3 style={{ color: '#10b981' }}>{attendanceSummary.present || 0}</h3>
+                <p>Present</p>
+              </div>
+              <div className="stat-card">
+                <h3 style={{ color: '#ef4444' }}>{attendanceSummary.absent || 0}</h3>
+                <p>Absent</p>
+              </div>
+              <div className="stat-card">
+                <h3 style={{ color: '#f59e0b' }}>{attendanceSummary.late || 0}</h3>
+                <p>Late</p>
+              </div>
+              <div className="stat-card">
+                <h3>{grades.length}</h3>
+                <p>Subjects</p>
+              </div>
+              <div className="stat-card">
+                <h3>{fees.filter(f => f.status === 'paid').length}</h3>
+                <p>Fees Paid</p>
+              </div>
+            </div>
+          )}
+
+          {/* Grades Tab */}
+          {activeTab === 'grades' && (
+            <div className="card">
+              <h3>📊 Grades Overview</h3>
+              {grades.length === 0 ? (
+                <p>No grades available for this term.</p>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th>Subject</th>
+                        <th>Score</th>
+                        <th>Grade</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {grades.map((grade, index) => (
+                        <tr key={index}>
+                          <td>{grade.subject}</td>
+                          <td>{grade.score}</td>
+                          <td>{getGradeLetter(grade.score)}</td>
+                          <td>
+                            <span style={{
+                              background: parseFloat(grade.score) >= 70 ? '#10b981' : 
+                                         parseFloat(grade.score) >= 50 ? '#f59e0b' : '#ef4444',
+                              color: 'white',
+                              padding: '2px 12px',
+                              borderRadius: '20px',
+                              fontSize: '12px'
+                            }}>
+                              {parseFloat(grade.score) >= 70 ? '✅ Good' :
+                               parseFloat(grade.score) >= 50 ? '⚠️ Average' : '❌ Needs Improvement'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Attendance Tab */}
+          {activeTab === 'attendance' && (
+            <div className="card">
+              <h3>📋 Attendance Records</h3>
+              <div className="stats-grid" style={{ marginBottom: '1rem' }}>
+                <div className="stat-card"><h3 style={{ color: '#10b981' }}>{attendanceSummary.present || 0}</h3><p>Present</p></div>
+                <div className="stat-card"><h3 style={{ color: '#ef4444' }}>{attendanceSummary.absent || 0}</h3><p>Absent</p></div>
+                <div className="stat-card"><h3 style={{ color: '#f59e0b' }}>{attendanceSummary.late || 0}</h3><p>Late</p></div>
+                <div className="stat-card"><h3>{attendanceSummary.total || 0}</h3><p>Total Days</p></div>
+              </div>
+              {attendance.length === 0 ? (
+                <p>No attendance records found.</p>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {attendance.map(record => (
+                        <tr key={record.date}>
+                          <td>{new Date(record.date).toLocaleDateString()}</td>
+                          <td>
+                            <span className={getStatusClass(record.status)}>
+                              {record.status.toUpperCase()}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Fees Tab */}
+          {activeTab === 'fees' && (
+            <div className="card">
+              <h3>💰 School Fees</h3>
+              {fees.length === 0 ? (
+                <p>No fee records found.</p>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th>Fee Type</th>
+                        <th>Term</th>
+                        <th>Year</th>
+                        <th>Amount</th>
+                        <th>Paid</th>
+                        <th>Balance</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fees.map((fee, index) => (
+                        <tr key={index}>
+                          <td>{fee.fee_name}</td>
+                          <td>{fee.term}</td>
+                          <td>{fee.academic_year}</td>
+                          <td>₵{parseFloat(fee.total_amount).toFixed(2)}</td>
+                          <td>₵{parseFloat(fee.amount_paid).toFixed(2)}</td>
+                          <td>₵{parseFloat(fee.balance).toFixed(2)}</td>
+                          <td>
+                            <span style={{
+                              background: fee.status === 'paid' ? '#10b981' : 
+                                         fee.status === 'partial' ? '#f59e0b' : '#ef4444',
+                              color: 'white',
+                              padding: '2px 12px',
+                              borderRadius: '20px',
+                              fontSize: '12px'
+                            }}>
+                              {fee.status.toUpperCase()}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+export default ParentDashboard;
