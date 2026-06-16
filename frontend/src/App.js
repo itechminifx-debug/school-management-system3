@@ -13,7 +13,6 @@ import AdvancePayment from './components/AdvancePayment';
 import SchoolFees from './components/SchoolFees';
 import SchoolSettings from './components/SchoolSettings';
 import SimpleLogin from './components/SimpleLogin';
-import Dashboard from './components/Dashboard';
 import './App.css';
 
 function Navigation({ onLogout }) {
