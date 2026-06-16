@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useSchool } from '../context/SchoolContext';
 
 function ReportCard() {
+  const { schoolSettings } = useSchool();
   const [classLevels, setClassLevels] = useState([]);
   const [selectedClass, setSelectedClass] = useState('');
   const [students, setStudents] = useState([]);
@@ -12,12 +14,8 @@ function ReportCard() {
   const [academicYear, setAcademicYear] = useState(new Date().getFullYear().toString());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [schoolInfo] = useState({
-    name: 'GREENWOOD HIGH SCHOOL',
-    address: '123 Education Street, Accra, Ghana',
-    phone: '+233 24 123 4567',
-    email: 'info@greenwood.edu.gh'
-  });
+
+  const apiUrl = 'https://school-management-api-5mml.onrender.com';
 
   useEffect(() => {
     fetchClassLevels();
@@ -42,7 +40,7 @@ function ReportCard() {
   const fetchClassLevels = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.get('https://school-management-api-5mml.onrender.com/api/class-levels', {
+      const response = await axios.get(`${apiUrl}/api/class-levels`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setClassLevels(response.data.classLevels);
@@ -57,7 +55,7 @@ function ReportCard() {
   const fetchAllStudents = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.get('https://school-management-api-5mml.onrender.com/api/students', {
+      const response = await axios.get(`${apiUrl}/api/students`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setStudents(response.data.students);
@@ -73,7 +71,7 @@ function ReportCard() {
     
     try {
       const response = await axios.get(
-        `https://school-management-api-5mml.onrender.com/api/grades/report/${selectedStudent}/${term}/${academicYear}`,
+        `${apiUrl}/api/grades/report/${selectedStudent}/${term}/${academicYear}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
@@ -254,10 +252,18 @@ function ReportCard() {
         <>
           <div className="report-card-container" id="report-card">
             <div className="report-card">
+              {/* School Header with Logo and Settings */}
               <div className="school-header">
-                <h1>{schoolInfo.name}</h1>
-                <p>{schoolInfo.address}</p>
-                <p>Tel: {schoolInfo.phone} | Email: {schoolInfo.email}</p>
+                {schoolSettings.school_logo && (
+                  <div className="school-logo">
+                    <img src={schoolSettings.school_logo} alt="School Logo" style={{ maxWidth: '100px', maxHeight: '100px' }} />
+                  </div>
+                )}
+                <h1>{schoolSettings.school_name}</h1>
+                <p className="school-motto">"{schoolSettings.school_motto}"</p>
+                <p>{schoolSettings.school_address}</p>
+                <p>Tel: {schoolSettings.school_phone} | Email: {schoolSettings.school_email}</p>
+                {schoolSettings.school_website && <p>Website: {schoolSettings.school_website}</p>}
                 <div className="report-title">
                   <h2>TERM REPORT CARD</h2>
                   <p>{term}, {academicYear} Academic Year</p>
@@ -369,7 +375,7 @@ function ReportCard() {
               </div>
 
               <div className="footer">
-                <p>* This report card is officially issued by {schoolInfo.name} *</p>
+                <p>* This report card is officially issued by {schoolSettings.school_name} *</p>
               </div>
             </div>
           </div>
