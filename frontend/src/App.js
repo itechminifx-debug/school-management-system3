@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { SchoolProvider, useSchool } from './context/SchoolContext';
-import MainLogin from './components/MainLogin';
+import SimpleLogin from './components/SimpleLogin';
 import Dashboard from './components/Dashboard';
 import StudentList from './components/StudentList';
 import AddStudent from './components/AddStudent';
@@ -12,7 +12,6 @@ import Fees from './components/Fees';
 import AdvancePayment from './components/AdvancePayment';
 import SchoolFees from './components/SchoolFees';
 import SchoolSettings from './components/SchoolSettings';
-import SimpleLogin from './components/SimpleLogin';
 import './App.css';
 
 function Navigation({ onLogout }) {
@@ -42,13 +41,20 @@ function Navigation({ onLogout }) {
 }
 
 function AppContent() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(null); // Start as null to check loading state
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check authentication status on app load
     const token = localStorage.getItem('token');
-    if (token) {
+    const user = localStorage.getItem('user');
+    
+    if (token && user) {
       setIsAuthenticated(true);
+    } else {
+      setIsAuthenticated(false);
     }
+    setLoading(false);
   }, []);
 
   const handleLogin = () => {
@@ -61,12 +67,17 @@ function AppContent() {
     setIsAuthenticated(false);
   };
 
+  // Show loading spinner while checking auth
+  if (loading) {
+    return <div className="container">Loading...</div>;
+  }
+
   return (
     <Router>
       <div className="App">
         {isAuthenticated && <Navigation onLogout={handleLogout} />}
         <Routes>
-          <Route path="/login" element={<MainLogin onLogin={handleLogin} />} />
+          <Route path="/login" element={<SimpleLogin onLogin={handleLogin} />} />
           <Route path="/dashboard" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
           <Route path="/students" element={isAuthenticated ? <StudentList /> : <Navigate to="/login" />} />
           <Route path="/add-student" element={isAuthenticated ? <AddStudent /> : <Navigate to="/login" />} />
@@ -78,8 +89,6 @@ function AppContent() {
           <Route path="/school-fees" element={isAuthenticated ? <SchoolFees /> : <Navigate to="/login" />} />
           <Route path="/school-settings" element={isAuthenticated ? <SchoolSettings /> : <Navigate to="/login" />} />
           <Route path="/" element={<Navigate to="/login" />} />
-             <Route path="/login" element={<SimpleLogin onLogin={handleLogin} />} />
-<Route path="/dashboard" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />                                 
         </Routes>
       </div>
     </Router>
