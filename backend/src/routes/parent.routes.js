@@ -15,9 +15,9 @@ router.post('/login', async (req, res) => {
     
     try {
         const result = await pool.query(
-            `SELECT p.*, u.id as user_id 
+            `SELECT p.id, p.full_name, p.email, p.phone, u.id as user_id, u.role
              FROM parents p
-             JOIN users u ON p.user_id = u.id
+             JOIN users u ON p.id = u.parent_id
              WHERE p.email = $1`,
             [email]
         );
@@ -33,7 +33,11 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
         
-        // Generate JWT token
+        // Verify role is parent
+        if (parent.role !== 'parent') {
+            return res.status(403).json({ message: 'Access denied. This account is not a parent account.' });
+        }
+        
         const token = jwt.sign(
             { 
                 userId: parent.user_id, 
@@ -53,15 +57,15 @@ router.post('/login', async (req, res) => {
                 id: parent.id,
                 full_name: parent.full_name,
                 email: parent.email,
-                phone: parent.phone
+                phone: parent.phone,
+                role: 'parent'
             }
         });
     } catch (error) {
         console.error('Parent login error:', error);
-        res.status(500).json({ message: 'Login failed' });
+        res.status(500).json({ message: 'Login failed', error: error.message });
     }
 });
-
 // ========================================
 // GET PARENT'S CHILDREN
 // ========================================
@@ -236,9 +240,15 @@ router.post('/create', authenticateToken, authorizeRole(['admin']), async (req, 
     
     try {
         // Check if parent already exists
-        const existing = await pool.query('SELECT id FROM parents WHERE email = $1', [email]);
-        if (existing.rows.length > 0) {
+        const existingParent = await pool.query('SELECT id FROM parents WHERE email = $1', [email]);
+        if (existingParent.rows.length > 0) {
             return res.status(400).json({ message: 'Parent with this email already exists' });
+        }
+        
+        // Check if user already exists
+        const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+        if (existingUser.rows.length > 0) {
+            return res.status(400).json({ message: 'User with this email already exists' });
         }
         
         // Hash password
@@ -266,7 +276,7 @@ router.post('/create', authenticateToken, authorizeRole(['admin']), async (req, 
             [full_name, email, hashedPassword, parentId]
         );
         
-        console.log('User created with ID:', userResult.rows[0].id);
+        console.log('User created with ID:', userResult.rows[0].id, 'Role: parent');
         
         // Link parent to students
         if (student_ids && student_ids.length > 0) {
