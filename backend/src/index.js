@@ -52,6 +52,7 @@ const subjectRoutes = require('./routes/subject.routes');
 const feeRoutes = require('./routes/fee.routes');
 const schoolFeesRoutes = require('./routes/schoolFees.routes');
 const schoolSettingsRoutes = require('./routes/schoolSettings.routes');
+const parentRoutes = require('./routes/parent.routes');
 
 // Use routes
 app.use('/api/auth', authRoutes);
@@ -63,6 +64,7 @@ app.use('/api/subjects', subjectRoutes);
 app.use('/api/fees', feeRoutes);
 app.use('/api/school-fees', schoolFeesRoutes);
 app.use('/api/school-settings', schoolSettingsRoutes);
+app.use('/api/parent', parentRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
