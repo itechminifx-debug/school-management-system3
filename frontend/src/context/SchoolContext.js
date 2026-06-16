@@ -13,6 +13,7 @@ export const SchoolProvider = ({ children }) => {
     school_email: 'info@greenwood.edu.gh',
     school_website: 'www.greenwood.edu.gh',
     school_motto: 'Excellence in Education',
+    school_logo: null,
     currency_symbol: '₵',
     academic_year: '2026',
     term: 'Term 1'
@@ -41,7 +42,6 @@ export const SchoolProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Error fetching school settings:', error);
-      // Use default settings if API fails
     } finally {
       setLoading(false);
     }
