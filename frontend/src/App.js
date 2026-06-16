@@ -17,7 +17,6 @@ import ParentDashboard from './components/ParentDashboard';
 import UserManagement from './components/UserManagement';
 import './App.css';
 
-// Navigation component - only shown when authenticated
 function Navigation({ onLogout }) {
   const { schoolSettings } = useSchool();
 
@@ -34,11 +33,20 @@ function Navigation({ onLogout }) {
         <a href="/fees">🍽️ Daily Fees</a>
         <a href="/advance-payment">💰 Advance Payment</a>
         <a href="/school-fees">🏫 School Fees</a>
+        <a href="/user-management">👥 Users</a>
         <a href="/school-settings">⚙️ Settings</a>
-        <Link to="/user-management" className={isActive('/user-management')}>👥 Users</Link
         <button onClick={onLogout} className="logout-btn">🚪 Logout</button>
       </div>
     </nav>
+  );
+}
+
+function AuthenticatedPage({ children, onLogout }) {
+  return (
+    <>
+      <Navigation onLogout={onLogout} />
+      {children}
+    </>
   );
 }
 
@@ -54,7 +62,6 @@ function AppContent() {
       setIsAuthenticated(true);
     } else {
       setIsAuthenticated(false);
-      // Clear any stale data
       localStorage.removeItem('token');
       localStorage.removeItem('user');
     }
@@ -69,7 +76,6 @@ function AppContent() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setIsAuthenticated(false);
-    // Force navigation to login
     window.location.href = '/login';
   };
 
@@ -82,90 +88,69 @@ function AppContent() {
       <div className="App">
         <Routes>
           <Route path="/login" element={<MainLogin onLogin={handleLogin} />} />
+          <Route path="/parent-login" element={<ParentLogin onLogin={handleLogin} />} />
+          
           <Route path="/dashboard" element={
-            isAuthenticated ? (
-              <>
-                <Navigation onLogout={handleLogout} />
-                <Dashboard />
-              </>
-            ) : <Navigate to="/login" />
+            isAuthenticated ? 
+              <AuthenticatedPage onLogout={handleLogout}><Dashboard /></AuthenticatedPage> : 
+              <Navigate to="/login" />
+          } />
+          <Route path="/parent-dashboard" element={
+            isAuthenticated ? 
+              <AuthenticatedPage onLogout={handleLogout}><ParentDashboard /></AuthenticatedPage> : 
+              <Navigate to="/parent-login" />
           } />
           <Route path="/students" element={
-            isAuthenticated ? (
-              <>
-                <Navigation onLogout={handleLogout} />
-                <StudentList />
-              </>
-            ) : <Navigate to="/login" />
+            isAuthenticated ? 
+              <AuthenticatedPage onLogout={handleLogout}><StudentList /></AuthenticatedPage> : 
+              <Navigate to="/login" />
           } />
           <Route path="/add-student" element={
-            isAuthenticated ? (
-              <>
-                <Navigation onLogout={handleLogout} />
-                <AddStudent />
-              </>
-            ) : <Navigate to="/login" />
+            isAuthenticated ? 
+              <AuthenticatedPage onLogout={handleLogout}><AddStudent /></AuthenticatedPage> : 
+              <Navigate to="/login" />
           } />
           <Route path="/attendance" element={
-            isAuthenticated ? (
-              <>
-                <Navigation onLogout={handleLogout} />
-                <Attendance />
-              </>
-            ) : <Navigate to="/login" />
+            isAuthenticated ? 
+              <AuthenticatedPage onLogout={handleLogout}><Attendance /></AuthenticatedPage> : 
+              <Navigate to="/login" />
           } />
           <Route path="/grades" element={
-            isAuthenticated ? (
-              <>
-                <Navigation onLogout={handleLogout} />
-                <Grades />
-              </>
-            ) : <Navigate to="/login" />
+            isAuthenticated ? 
+              <AuthenticatedPage onLogout={handleLogout}><Grades /></AuthenticatedPage> : 
+              <Navigate to="/login" />
           } />
           <Route path="/report-card" element={
-            isAuthenticated ? (
-              <>
-                <Navigation onLogout={handleLogout} />
-                <ReportCard />
-              </>
-            ) : <Navigate to="/login" />
+            isAuthenticated ? 
+              <AuthenticatedPage onLogout={handleLogout}><ReportCard /></AuthenticatedPage> : 
+              <Navigate to="/login" />
           } />
           <Route path="/fees" element={
-            isAuthenticated ? (
-              <>
-                <Navigation onLogout={handleLogout} />
-                <Fees />
-              </>
-            ) : <Navigate to="/login" />
+            isAuthenticated ? 
+              <AuthenticatedPage onLogout={handleLogout}><Fees /></AuthenticatedPage> : 
+              <Navigate to="/login" />
           } />
           <Route path="/advance-payment" element={
-            isAuthenticated ? (
-              <>
-                <Navigation onLogout={handleLogout} />
-                <AdvancePayment />
-              </>
-            ) : <Navigate to="/login" />
+            isAuthenticated ? 
+              <AuthenticatedPage onLogout={handleLogout}><AdvancePayment /></AuthenticatedPage> : 
+              <Navigate to="/login" />
           } />
           <Route path="/school-fees" element={
-            isAuthenticated ? (
-              <>
-                <Navigation onLogout={handleLogout} />
-                <SchoolFees />
-              </>
-            ) : <Navigate to="/login" />
+            isAuthenticated ? 
+              <AuthenticatedPage onLogout={handleLogout}><SchoolFees /></AuthenticatedPage> : 
+              <Navigate to="/login" />
+          } />
+          <Route path="/user-management" element={
+            isAuthenticated ? 
+              <AuthenticatedPage onLogout={handleLogout}><UserManagement /></AuthenticatedPage> : 
+              <Navigate to="/login" />
           } />
           <Route path="/school-settings" element={
-            isAuthenticated ? (
-              <>
-                <Navigation onLogout={handleLogout} />
-                <SchoolSettings />
-              </>
-            ) : <Navigate to="/login" />
+            isAuthenticated ? 
+              <AuthenticatedPage onLogout={handleLogout}><SchoolSettings /></AuthenticatedPage> : 
+              <Navigate to="/login" />
           } />
-              <Route path="/parent-login" element={<ParentLogin onLogin={handleLogin} />} />
-            <Route path="/parent-dashboard" element={isAuthenticated ? <ParentDashboard /> : <Navigate to="/parent-login" />} />
           <Route path="/" element={<Navigate to="/login" />} />
-          <Route path="/user-management" element={isAuthenticated ? <UserManagement /> : <Navigate to="/login" />} />
         </Routes>
       </div>
     </Router>
