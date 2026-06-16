@@ -14,6 +14,7 @@ import SchoolFees from './components/SchoolFees';
 import SchoolSettings from './components/SchoolSettings';
 import ParentLogin from './components/ParentLogin';
 import ParentDashboard from './components/ParentDashboard';
+import UserManagement from './components/UserManagement';
 import './App.css';
 
 // Navigation component - only shown when authenticated
@@ -34,6 +35,7 @@ function Navigation({ onLogout }) {
         <a href="/advance-payment">💰 Advance Payment</a>
         <a href="/school-fees">🏫 School Fees</a>
         <a href="/school-settings">⚙️ Settings</a>
+        <Link to="/user-management" className={isActive('/user-management')}>👥 Users</Link
         <button onClick={onLogout} className="logout-btn">🚪 Logout</button>
       </div>
     </nav>
@@ -163,6 +165,7 @@ function AppContent() {
               <Route path="/parent-login" element={<ParentLogin onLogin={handleLogin} />} />
             <Route path="/parent-dashboard" element={isAuthenticated ? <ParentDashboard /> : <Navigate to="/parent-login" />} />
           <Route path="/" element={<Navigate to="/login" />} />
+          <Route path="/user-management" element={isAuthenticated ? <UserManagement /> : <Navigate to="/login" />} />
         </Routes>
       </div>
     </Router>
