@@ -3,20 +3,22 @@ import axios from 'axios';
 
 function SchoolSettings() {
   const [settings, setSettings] = useState({
-    school_name: 'Greenwood High School',
-    school_address: '123 Education Street, Accra, Ghana',
-    school_phone: '+233 24 123 4567',
-    school_email: 'info@greenwood.edu.gh',
-    school_website: 'www.greenwood.edu.gh',
-    school_motto: 'Excellence in Education',
+    school_name: '',
+    school_address: '',
+    school_phone: '',
+    school_email: '',
+    school_website: '',
+    school_motto: '',
     academic_year: '2026',
     term: 'Term 1',
-    currency_symbol: '₵'
+    currency_symbol: '₵',
+    school_logo: null
   });
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [logoPreview, setLogoPreview] = useState(null);
+  const [logoFile, setLogoFile] = useState(null);
 
   const apiUrl = 'https://school-management-api-5mml.onrender.com';
 
@@ -31,8 +33,12 @@ function SchoolSettings() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSettings(response.data.settings);
+      if (response.data.settings.school_logo) {
+        setLogoPreview(response.data.settings.school_logo);
+      }
     } catch (error) {
       console.error('Error fetching settings:', error);
+      setError('Failed to load school settings');
     } finally {
       setLoading(false);
     }
@@ -40,6 +46,19 @@ function SchoolSettings() {
 
   const handleChange = (e) => {
     setSettings({ ...settings, [e.target.name]: e.target.value });
+  };
+
+  const handleLogoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setLogoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoPreview(reader.result);
+        setSettings({ ...settings, school_logo: reader.result });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -60,18 +79,6 @@ function SchoolSettings() {
       setTimeout(() => setError(''), 3000);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleLogoUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setLogoPreview(reader.result);
-        setSettings({ ...settings, school_logo: reader.result });
-      };
-      reader.readAsDataURL(file);
     }
   };
 
@@ -138,8 +145,9 @@ function SchoolSettings() {
               <label>School Logo/Crest:</label>
               <input type="file" accept="image/*" onChange={handleLogoUpload} />
               {logoPreview && (
-                <div style={{ marginTop: '10px' }}>
-                  <img src={logoPreview} alt="School Logo" style={{ maxWidth: '100px', maxHeight: '100px' }} />
+                <div style={{ marginTop: '10px', textAlign: 'center' }}>
+                  <img src={logoPreview} alt="School Logo" style={{ maxWidth: '120px', maxHeight: '120px', borderRadius: '8px', border: '1px solid #ddd' }} />
+                  <p style={{ fontSize: '12px', marginTop: '5px' }}>Logo Preview</p>
                 </div>
               )}
             </div>
@@ -150,14 +158,19 @@ function SchoolSettings() {
           </button>
         </form>
 
-        <div style={{ marginTop: '2rem', padding: '1rem', background: '#f0f4f8', borderRadius: '12px' }}>
-          <h3>Preview</h3>
+        {/* Preview Section */}
+        <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'linear-gradient(135deg, #f0f4f8, #e2e8f0)', borderRadius: '16px' }}>
+          <h3>📋 Preview</h3>
           <div style={{ textAlign: 'center' }}>
-            {logoPreview && <img src={logoPreview} alt="Logo" style={{ maxWidth: '80px', marginBottom: '10px' }} />}
-            <h4>{settings.school_name}</h4>
-            <p>{settings.school_motto}</p>
+            {logoPreview && <img src={logoPreview} alt="Logo" style={{ maxWidth: '100px', marginBottom: '10px' }} />}
+            <h2 style={{ margin: '5px 0', color: '#1e3c72' }}>{settings.school_name}</h2>
+            <p style={{ fontStyle: 'italic', color: '#666' }}>"{settings.school_motto}"</p>
             <p>{settings.school_address}</p>
             <p>Tel: {settings.school_phone} | Email: {settings.school_email}</p>
+            {settings.school_website && <p>Website: {settings.school_website}</p>}
+            <p style={{ marginTop: '10px', fontSize: '12px', color: '#888' }}>
+              Academic Year: {settings.academic_year} | Term: {settings.term} | Currency: {settings.currency_symbol}
+            </p>
           </div>
         </div>
       </div>
