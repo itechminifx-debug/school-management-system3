@@ -228,6 +228,8 @@ router.post('/create', authenticateToken, authorizeRole(['admin']), async (req, 
     const pool = getDb(req);
     const { full_name, email, phone, address, student_ids, password } = req.body;
     
+    console.log('Creating parent account:', { full_name, email, phone, student_ids });
+    
     if (!full_name || !email || !password) {
         return res.status(400).json({ message: 'Name, email, and password are required' });
     }
@@ -239,9 +241,10 @@ router.post('/create', authenticateToken, authorizeRole(['admin']), async (req, 
             return res.status(400).json({ message: 'Parent with this email already exists' });
         }
         
-        // Create user account
+        // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
         
+        // Create user account
         const userResult = await pool.query(
             `INSERT INTO users (full_name, email, password_hash, role) 
              VALUES ($1, $2, $3, 'parent') 
@@ -249,20 +252,25 @@ router.post('/create', authenticateToken, authorizeRole(['admin']), async (req, 
             [full_name, email, hashedPassword]
         );
         
+        console.log('User created:', userResult.rows[0]);
+        
         // Create parent record
         const parentResult = await pool.query(
             `INSERT INTO parents (user_id, full_name, email, phone, address, password_hash)
              VALUES ($1, $2, $3, $4, $5, $6)
              RETURNING id`,
-            [userResult.rows[0].id, full_name, email, phone, address, hashedPassword]
+            [userResult.rows[0].id, full_name, email, phone || null, address || null, hashedPassword]
         );
+        
+        console.log('Parent created:', parentResult.rows[0]);
         
         // Link parent to students
         if (student_ids && student_ids.length > 0) {
             for (const studentId of student_ids) {
                 await pool.query(
                     `INSERT INTO parent_students (parent_id, student_id)
-                     VALUES ($1, $2)`,
+                     VALUES ($1, $2)
+                     ON CONFLICT (parent_id, student_id) DO NOTHING`,
                     [parentResult.rows[0].id, studentId]
                 );
             }
@@ -274,7 +282,7 @@ router.post('/create', authenticateToken, authorizeRole(['admin']), async (req, 
         });
     } catch (error) {
         console.error('Error creating parent:', error);
-        res.status(500).json({ message: 'Failed to create parent account' });
+        res.status(500).json({ message: 'Failed to create parent account', error: error.message });
     }
 });
 
