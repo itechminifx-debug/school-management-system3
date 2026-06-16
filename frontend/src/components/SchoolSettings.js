@@ -15,10 +15,10 @@ function SchoolSettings() {
     school_logo: null
   });
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [logoPreview, setLogoPreview] = useState(null);
-  const [logoFile, setLogoFile] = useState(null);
 
   const apiUrl = 'https://school-management-api-5mml.onrender.com';
 
@@ -48,14 +48,53 @@ function SchoolSettings() {
     setSettings({ ...settings, [e.target.name]: e.target.value });
   };
 
+  const compressImage = (base64, callback) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Set max dimensions
+      const maxWidth = 200;
+      const maxHeight = 200;
+      let width = img.width;
+      let height = img.height;
+      
+      if (width > height) {
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = (width * maxHeight) / height;
+          height = maxHeight;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Compress to JPEG with 70% quality
+      const compressed = canvas.toDataURL('image/jpeg', 0.7);
+      callback(compressed);
+    };
+    img.src = base64;
+  };
+
   const handleLogoUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setLogoFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setLogoPreview(reader.result);
-        setSettings({ ...settings, school_logo: reader.result });
+        // Compress the image before saving
+        compressImage(reader.result, (compressed) => {
+          setLogoPreview(compressed);
+          setSettings({ ...settings, school_logo: compressed });
+          setMessage('Logo loaded. Click Save to apply.');
+          setTimeout(() => setMessage(''), 3000);
+        });
       };
       reader.readAsDataURL(file);
     }
@@ -63,22 +102,31 @@ function SchoolSettings() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setSaving(true);
     setMessage('');
     setError('');
 
     const token = localStorage.getItem('token');
     try {
-      await axios.put(`${apiUrl}/api/school-settings`, settings, {
+      const response = await axios.put(`${apiUrl}/api/school-settings`, settings, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      
+      if (response.data && response.data.settings) {
+        setSettings(response.data.settings);
+        if (response.data.settings.school_logo) {
+          setLogoPreview(response.data.settings.school_logo);
+        }
+      }
+      
       setMessage('✅ School settings updated successfully!');
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {
-      setError('Failed to update settings');
+      console.error('Error saving settings:', error);
+      setError(error.response?.data?.message || 'Failed to update settings');
       setTimeout(() => setError(''), 3000);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -97,35 +145,35 @@ function SchoolSettings() {
           <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
             <div>
               <label>School Name:</label>
-              <input type="text" name="school_name" value={settings.school_name} onChange={handleChange} required />
+              <input type="text" name="school_name" value={settings.school_name || ''} onChange={handleChange} required />
             </div>
             <div>
               <label>School Motto:</label>
-              <input type="text" name="school_motto" value={settings.school_motto} onChange={handleChange} />
+              <input type="text" name="school_motto" value={settings.school_motto || ''} onChange={handleChange} />
             </div>
             <div>
               <label>School Address:</label>
-              <textarea name="school_address" value={settings.school_address} onChange={handleChange} rows="2" />
+              <textarea name="school_address" value={settings.school_address || ''} onChange={handleChange} rows="2" />
             </div>
             <div>
               <label>School Phone:</label>
-              <input type="text" name="school_phone" value={settings.school_phone} onChange={handleChange} />
+              <input type="text" name="school_phone" value={settings.school_phone || ''} onChange={handleChange} />
             </div>
             <div>
               <label>School Email:</label>
-              <input type="email" name="school_email" value={settings.school_email} onChange={handleChange} />
+              <input type="email" name="school_email" value={settings.school_email || ''} onChange={handleChange} />
             </div>
             <div>
               <label>School Website:</label>
-              <input type="text" name="school_website" value={settings.school_website} onChange={handleChange} />
+              <input type="text" name="school_website" value={settings.school_website || ''} onChange={handleChange} />
             </div>
             <div>
               <label>Current Academic Year:</label>
-              <input type="text" name="academic_year" value={settings.academic_year} onChange={handleChange} />
+              <input type="text" name="academic_year" value={settings.academic_year || '2026'} onChange={handleChange} />
             </div>
             <div>
               <label>Current Term:</label>
-              <select name="term" value={settings.term} onChange={handleChange}>
+              <select name="term" value={settings.term || 'Term 1'} onChange={handleChange}>
                 <option value="Term 1">Term 1</option>
                 <option value="Term 2">Term 2</option>
                 <option value="Term 3">Term 3</option>
@@ -133,7 +181,7 @@ function SchoolSettings() {
             </div>
             <div>
               <label>Currency Symbol:</label>
-              <select name="currency_symbol" value={settings.currency_symbol} onChange={handleChange}>
+              <select name="currency_symbol" value={settings.currency_symbol || '₵'} onChange={handleChange}>
                 <option value="₵">₵ (Ghana Cedi)</option>
                 <option value="$">$ (US Dollar)</option>
                 <option value="£">£ (British Pound)</option>
@@ -143,18 +191,18 @@ function SchoolSettings() {
             </div>
             <div>
               <label>School Logo/Crest:</label>
-              <input type="file" accept="image/*" onChange={handleLogoUpload} />
+              <input type="file" accept="image/png,image/jpeg,image/jpg" onChange={handleLogoUpload} />
               {logoPreview && (
                 <div style={{ marginTop: '10px', textAlign: 'center' }}>
-                  <img src={logoPreview} alt="School Logo" style={{ maxWidth: '120px', maxHeight: '120px', borderRadius: '8px', border: '1px solid #ddd' }} />
-                  <p style={{ fontSize: '12px', marginTop: '5px' }}>Logo Preview</p>
+                  <img src={logoPreview} alt="School Logo" style={{ maxWidth: '100px', maxHeight: '100px', borderRadius: '8px', border: '1px solid #ddd' }} />
+                  <p style={{ fontSize: '11px', marginTop: '5px', color: '#666' }}>Logo (compressed)</p>
                 </div>
               )}
             </div>
           </div>
 
-          <button type="submit" disabled={loading} style={{ marginTop: '1rem' }}>
-            {loading ? 'Saving...' : '💾 Save School Settings'}
+          <button type="submit" disabled={saving} style={{ marginTop: '1rem' }}>
+            {saving ? 'Saving...' : '💾 Save School Settings'}
           </button>
         </form>
 
@@ -162,15 +210,12 @@ function SchoolSettings() {
         <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'linear-gradient(135deg, #f0f4f8, #e2e8f0)', borderRadius: '16px' }}>
           <h3>📋 Preview</h3>
           <div style={{ textAlign: 'center' }}>
-            {logoPreview && <img src={logoPreview} alt="Logo" style={{ maxWidth: '100px', marginBottom: '10px' }} />}
-            <h2 style={{ margin: '5px 0', color: '#1e3c72' }}>{settings.school_name}</h2>
-            <p style={{ fontStyle: 'italic', color: '#666' }}>"{settings.school_motto}"</p>
-            <p>{settings.school_address}</p>
-            <p>Tel: {settings.school_phone} | Email: {settings.school_email}</p>
+            {logoPreview && <img src={logoPreview} alt="Logo" style={{ maxWidth: '80px', marginBottom: '10px' }} />}
+            <h2 style={{ margin: '5px 0', color: '#1e3c72' }}>{settings.school_name || 'School Name'}</h2>
+            <p style={{ fontStyle: 'italic', color: '#666' }}>"{settings.school_motto || 'Motto'}"</p>
+            <p>{settings.school_address || 'Address'}</p>
+            <p>Tel: {settings.school_phone || 'Phone'} | Email: {settings.school_email || 'Email'}</p>
             {settings.school_website && <p>Website: {settings.school_website}</p>}
-            <p style={{ marginTop: '10px', fontSize: '12px', color: '#888' }}>
-              Academic Year: {settings.academic_year} | Term: {settings.term} | Currency: {settings.currency_symbol}
-            </p>
           </div>
         </div>
       </div>
