@@ -45,35 +45,28 @@ function AdminNavigation({ onLogout }) {
 // Parent Navigation - Simple and clean
 function ParentNavigation({ onLogout }) {
   const { schoolSettings } = useSchool();
+  const [parentName, setParentName] = useState('Parent');
+
+  useEffect(() => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      try {
+        const userData = JSON.parse(user);
+        setParentName(userData.full_name || 'Parent');
+      } catch (e) {
+        setParentName('Parent');
+      }
+    }
+  }, []);
 
   return (
     <nav className="parent-navbar">
       <h1>🏫 {schoolSettings.school_name}</h1>
       <div className="parent-nav-links">
-        <span className="parent-name">👤 {localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).full_name : 'Parent'}</span>
+        <span className="parent-name">👤 {parentName}</span>
         <button onClick={onLogout} className="parent-logout-btn">🚪 Logout</button>
       </div>
     </nav>
-  );
-}
-
-// Wrapper for admin pages
-function AdminPage({ children, onLogout }) {
-  return (
-    <>
-      <AdminNavigation onLogout={onLogout} />
-      {children}
-    </>
-  );
-}
-
-// Wrapper for parent pages
-function ParentPage({ children, onLogout }) {
-  return (
-    <>
-      <ParentNavigation onLogout={onLogout} />
-      {children}
-    </>
   );
 }
 
@@ -85,45 +78,28 @@ function AppContent() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     const user = localStorage.getItem('user');
+    const role = localStorage.getItem('userRole');
     
     if (token && user) {
-      try {
-        const userData = JSON.parse(user);
-        setIsAuthenticated(true);
-        setUserRole(userData.role || 'admin');
-      } catch (e) {
-        setIsAuthenticated(false);
-        setUserRole(null);
-      }
+      setIsAuthenticated(true);
+      setUserRole(role || 'admin');
     } else {
       setIsAuthenticated(false);
       setUserRole(null);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
     }
     setLoading(false);
   }, []);
 
   const handleLogin = () => {
-    const user = localStorage.getItem('user');
-    if (user) {
-      try {
-        const userData = JSON.parse(user);
-        setIsAuthenticated(true);
-        setUserRole(userData.role || 'admin');
-      } catch (e) {
-        setIsAuthenticated(true);
-        setUserRole('admin');
-      }
-    } else {
-      setIsAuthenticated(true);
-      setUserRole('admin');
-    }
+    const role = localStorage.getItem('userRole');
+    setIsAuthenticated(true);
+    setUserRole(role || 'admin');
   };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('userRole');
     setIsAuthenticated(false);
     setUserRole(null);
     window.location.href = '/login';
@@ -133,6 +109,9 @@ function AppContent() {
     return <div className="container">Loading...</div>;
   }
 
+  const isParent = userRole === 'parent';
+  const isAdmin = userRole === 'admin' || userRole === 'teacher';
+
   return (
     <Router>
       <div className="App">
@@ -140,74 +119,93 @@ function AppContent() {
           <Route path="/login" element={<MainLogin onLogin={handleLogin} />} />
           <Route path="/parent-login" element={<ParentLogin onLogin={handleLogin} />} />
           
-          {/* Admin Routes */}
+          {/* Admin Routes - ONLY for admin/teacher users */}
           <Route path="/dashboard" element={
-            isAuthenticated && userRole !== 'parent' ? 
+            isAuthenticated && isAdmin ? 
               <AdminPage onLogout={handleLogout}><Dashboard /></AdminPage> : 
-              <Navigate to={userRole === 'parent' ? '/parent-dashboard' : '/login'} />
+              <Navigate to={isParent ? '/parent-dashboard' : '/login'} />
           } />
           <Route path="/students" element={
-            isAuthenticated && userRole !== 'parent' ? 
+            isAuthenticated && isAdmin ? 
               <AdminPage onLogout={handleLogout}><StudentList /></AdminPage> : 
               <Navigate to="/login" />
           } />
           <Route path="/add-student" element={
-            isAuthenticated && userRole !== 'parent' ? 
+            isAuthenticated && isAdmin ? 
               <AdminPage onLogout={handleLogout}><AddStudent /></AdminPage> : 
               <Navigate to="/login" />
           } />
           <Route path="/attendance" element={
-            isAuthenticated && userRole !== 'parent' ? 
+            isAuthenticated && isAdmin ? 
               <AdminPage onLogout={handleLogout}><Attendance /></AdminPage> : 
               <Navigate to="/login" />
           } />
           <Route path="/grades" element={
-            isAuthenticated && userRole !== 'parent' ? 
+            isAuthenticated && isAdmin ? 
               <AdminPage onLogout={handleLogout}><Grades /></AdminPage> : 
               <Navigate to="/login" />
           } />
           <Route path="/report-card" element={
-            isAuthenticated && userRole !== 'parent' ? 
+            isAuthenticated && isAdmin ? 
               <AdminPage onLogout={handleLogout}><ReportCard /></AdminPage> : 
               <Navigate to="/login" />
           } />
           <Route path="/fees" element={
-            isAuthenticated && userRole !== 'parent' ? 
+            isAuthenticated && isAdmin ? 
               <AdminPage onLogout={handleLogout}><Fees /></AdminPage> : 
               <Navigate to="/login" />
           } />
           <Route path="/advance-payment" element={
-            isAuthenticated && userRole !== 'parent' ? 
+            isAuthenticated && isAdmin ? 
               <AdminPage onLogout={handleLogout}><AdvancePayment /></AdminPage> : 
               <Navigate to="/login" />
           } />
           <Route path="/school-fees" element={
-            isAuthenticated && userRole !== 'parent' ? 
+            isAuthenticated && isAdmin ? 
               <AdminPage onLogout={handleLogout}><SchoolFees /></AdminPage> : 
               <Navigate to="/login" />
           } />
           <Route path="/user-management" element={
-            isAuthenticated && userRole !== 'parent' ? 
+            isAuthenticated && isAdmin ? 
               <AdminPage onLogout={handleLogout}><UserManagement /></AdminPage> : 
               <Navigate to="/login" />
           } />
           <Route path="/school-settings" element={
-            isAuthenticated && userRole !== 'parent' ? 
+            isAuthenticated && isAdmin ? 
               <AdminPage onLogout={handleLogout}><SchoolSettings /></AdminPage> : 
               <Navigate to="/login" />
           } />
           
-          {/* Parent Routes */}
+          {/* Parent Routes - ONLY for parent users */}
           <Route path="/parent-dashboard" element={
-            isAuthenticated && userRole === 'parent' ? 
+            isAuthenticated && isParent ? 
               <ParentPage onLogout={handleLogout}><ParentDashboard /></ParentPage> : 
-              <Navigate to={userRole !== 'parent' ? '/dashboard' : '/parent-login'} />
+              <Navigate to={isAdmin ? '/dashboard' : '/parent-login'} />
           } />
           
           <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
       </div>
     </Router>
+  );
+}
+
+// Helper components
+function AdminPage({ children, onLogout }) {
+  return (
+    <>
+      <AdminNavigation onLogout={onLogout} />
+      {children}
+    </>
+  );
+}
+
+function ParentPage({ children, onLogout }) {
+  return (
+    <>
+      <ParentNavigation onLogout={onLogout} />
+      {children}
+    </>
   );
 }
 
