@@ -22,16 +22,24 @@ function SimpleLogin({ onLogin }) {
         password
       });
 
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      
-      if (onLogin) onLogin();
-      
-      // Force navigation to dashboard
-      navigate('/dashboard');
-      window.location.href = '/dashboard';
+      if (response.data.token && response.data.user) {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        
+        // Call the onLogin callback to update parent state
+        if (onLogin) {
+          onLogin();
+        }
+        
+        // Navigate to dashboard
+        navigate('/dashboard');
+      } else {
+        setError('Invalid response from server');
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed');
+      console.error('Login error:', err);
+      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+    } finally {
       setLoading(false);
     }
   };
@@ -49,6 +57,7 @@ function SimpleLogin({ onLogin }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            autoComplete="off"
           />
           <input
             type="password"
@@ -58,7 +67,7 @@ function SimpleLogin({ onLogin }) {
             required
           />
           <button type="submit" disabled={loading}>
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Logging in...' : 'Login as Administrator'}
           </button>
         </form>
         <p style={{ textAlign: 'center', marginTop: '1rem', fontSize: '12px', color: '#666' }}>
