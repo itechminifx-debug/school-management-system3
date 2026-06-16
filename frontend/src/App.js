@@ -12,6 +12,8 @@ import Fees from './components/Fees';
 import AdvancePayment from './components/AdvancePayment';
 import SchoolFees from './components/SchoolFees';
 import SchoolSettings from './components/SchoolSettings';
+import ParentLogin from './components/ParentLogin';
+import ParentDashboard from './components/ParentDashboard';
 import './App.css';
 
 // Navigation component - only shown when authenticated
@@ -158,6 +160,8 @@ function AppContent() {
               </>
             ) : <Navigate to="/login" />
           } />
+              <Route path="/parent-login" element={<ParentLogin onLogin={handleLogin} />} />
+            <Route path="/parent-dashboard" element={isAuthenticated ? <ParentDashboard /> : <Navigate to="/parent-login" />} />
           <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
       </div>
