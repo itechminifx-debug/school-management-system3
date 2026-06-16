@@ -244,48 +244,59 @@ router.post('/create', authenticateToken, authorizeRole(['admin']), async (req, 
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
         
-        // Create user account
-        const userResult = await pool.query(
-            `INSERT INTO users (full_name, email, password_hash, role) 
-             VALUES ($1, $2, $3, 'parent') 
-             RETURNING id`,
-            [full_name, email, hashedPassword]
-        );
-        
-        console.log('User created:', userResult.rows[0]);
+        // Start transaction
+        await pool.query('BEGIN');
         
         // Create parent record
         const parentResult = await pool.query(
-            `INSERT INTO parents (user_id, full_name, email, phone, address, password_hash)
-             VALUES ($1, $2, $3, $4, $5, $6)
+            `INSERT INTO parents (full_name, email, phone, address, password_hash)
+             VALUES ($1, $2, $3, $4, $5)
              RETURNING id`,
-            [userResult.rows[0].id, full_name, email, phone || null, address || null, hashedPassword]
+            [full_name, email, phone || null, address || null, hashedPassword]
         );
         
-        console.log('Parent created:', parentResult.rows[0]);
+        const parentId = parentResult.rows[0].id;
+        console.log('Parent created with ID:', parentId);
+        
+        // Create user account linked to parent with role 'parent'
+        const userResult = await pool.query(
+            `INSERT INTO users (full_name, email, password_hash, role, parent_id) 
+             VALUES ($1, $2, $3, 'parent', $4) 
+             RETURNING id`,
+            [full_name, email, hashedPassword, parentId]
+        );
+        
+        console.log('User created with ID:', userResult.rows[0].id);
         
         // Link parent to students
         if (student_ids && student_ids.length > 0) {
             for (const studentId of student_ids) {
                 await pool.query(
-                    `INSERT INTO parent_students (parent_id, student_id)
-                     VALUES ($1, $2)
+                    `INSERT INTO parent_students (parent_id, student_id, relationship)
+                     VALUES ($1, $2, 'parent')
                      ON CONFLICT (parent_id, student_id) DO NOTHING`,
-                    [parentResult.rows[0].id, studentId]
+                    [parentId, studentId]
                 );
+                console.log('Linked student:', studentId);
             }
         }
         
+        // Commit transaction
+        await pool.query('COMMIT');
+        
         res.json({ 
             message: 'Parent account created successfully',
-            parent_id: parentResult.rows[0].id
+            parent_id: parentId,
+            user_id: userResult.rows[0].id,
+            role: 'parent'
         });
     } catch (error) {
+        // Rollback on error
+        await pool.query('ROLLBACK');
         console.error('Error creating parent:', error);
         res.status(500).json({ message: 'Failed to create parent account', error: error.message });
     }
 });
-
 // ========================================
 // ADMIN: GET ALL PARENTS
 // ========================================
