@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { SchoolProvider, useSchool } from './context/SchoolContext';
-import SimpleLogin from './components/SimpleLogin';
+import MainLogin from './components/MainLogin';
 import Dashboard from './components/Dashboard';
 import StudentList from './components/StudentList';
 import AddStudent from './components/AddStudent';
@@ -12,7 +12,6 @@ import Fees from './components/Fees';
 import AdvancePayment from './components/AdvancePayment';
 import SchoolFees from './components/SchoolFees';
 import SchoolSettings from './components/SchoolSettings';
-import MainLogin from './components/MainLogin';
 import './App.css';
 
 function Navigation({ onLogout }) {
@@ -42,11 +41,10 @@ function Navigation({ onLogout }) {
 }
 
 function AppContent() {
-  const [isAuthenticated, setIsAuthenticated] = useState(null); // Start as null to check loading state
+  const [isAuthenticated, setIsAuthenticated] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check authentication status on app load
     const token = localStorage.getItem('token');
     const user = localStorage.getItem('user');
     
@@ -68,7 +66,6 @@ function AppContent() {
     setIsAuthenticated(false);
   };
 
-  // Show loading spinner while checking auth
   if (loading) {
     return <div className="container">Loading...</div>;
   }
@@ -78,7 +75,7 @@ function AppContent() {
       <div className="App">
         {isAuthenticated && <Navigation onLogout={handleLogout} />}
         <Routes>
-          <Route path="/login" element={<SimpleLogin onLogin={handleLogin} />} />
+          <Route path="/login" element={<MainLogin onLogin={handleLogin} />} />
           <Route path="/dashboard" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
           <Route path="/students" element={isAuthenticated ? <StudentList /> : <Navigate to="/login" />} />
           <Route path="/add-student" element={isAuthenticated ? <AddStudent /> : <Navigate to="/login" />} />
@@ -89,7 +86,6 @@ function AppContent() {
           <Route path="/advance-payment" element={isAuthenticated ? <AdvancePayment /> : <Navigate to="/login" />} />
           <Route path="/school-fees" element={isAuthenticated ? <SchoolFees /> : <Navigate to="/login" />} />
           <Route path="/school-settings" element={isAuthenticated ? <SchoolSettings /> : <Navigate to="/login" />} />
-          <Route path="/login" element={<MainLogin onLogin={handleLogin} />} />
           <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
       </div>
