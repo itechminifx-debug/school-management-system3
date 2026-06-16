@@ -122,64 +122,64 @@ function AppContent() {
           {/* Admin Routes - ONLY for admin/teacher users */}
           <Route path="/dashboard" element={
             isAuthenticated && isAdmin ? 
-              <AdminPage onLogout={handleLogout}><Dashboard /></AdminPage> : 
+              <><AdminNavigation onLogout={handleLogout} /><Dashboard /></> : 
               <Navigate to={isParent ? '/parent-dashboard' : '/login'} />
           } />
           <Route path="/students" element={
             isAuthenticated && isAdmin ? 
-              <AdminPage onLogout={handleLogout}><StudentList /></AdminPage> : 
+              <><AdminNavigation onLogout={handleLogout} /><StudentList /></> : 
               <Navigate to="/login" />
           } />
           <Route path="/add-student" element={
             isAuthenticated && isAdmin ? 
-              <AdminPage onLogout={handleLogout}><AddStudent /></AdminPage> : 
+              <><AdminNavigation onLogout={handleLogout} /><AddStudent /></> : 
               <Navigate to="/login" />
           } />
           <Route path="/attendance" element={
             isAuthenticated && isAdmin ? 
-              <AdminPage onLogout={handleLogout}><Attendance /></AdminPage> : 
+              <><AdminNavigation onLogout={handleLogout} /><Attendance /></> : 
               <Navigate to="/login" />
           } />
           <Route path="/grades" element={
             isAuthenticated && isAdmin ? 
-              <AdminPage onLogout={handleLogout}><Grades /></AdminPage> : 
+              <><AdminNavigation onLogout={handleLogout} /><Grades /></> : 
               <Navigate to="/login" />
           } />
           <Route path="/report-card" element={
             isAuthenticated && isAdmin ? 
-              <AdminPage onLogout={handleLogout}><ReportCard /></AdminPage> : 
+              <><AdminNavigation onLogout={handleLogout} /><ReportCard /></> : 
               <Navigate to="/login" />
           } />
           <Route path="/fees" element={
             isAuthenticated && isAdmin ? 
-              <AdminPage onLogout={handleLogout}><Fees /></AdminPage> : 
+              <><AdminNavigation onLogout={handleLogout} /><Fees /></> : 
               <Navigate to="/login" />
           } />
           <Route path="/advance-payment" element={
             isAuthenticated && isAdmin ? 
-              <AdminPage onLogout={handleLogout}><AdvancePayment /></AdminPage> : 
+              <><AdminNavigation onLogout={handleLogout} /><AdvancePayment /></> : 
               <Navigate to="/login" />
           } />
           <Route path="/school-fees" element={
             isAuthenticated && isAdmin ? 
-              <AdminPage onLogout={handleLogout}><SchoolFees /></AdminPage> : 
+              <><AdminNavigation onLogout={handleLogout} /><SchoolFees /></> : 
               <Navigate to="/login" />
           } />
           <Route path="/user-management" element={
             isAuthenticated && isAdmin ? 
-              <AdminPage onLogout={handleLogout}><UserManagement /></AdminPage> : 
+              <><AdminNavigation onLogout={handleLogout} /><UserManagement /></> : 
               <Navigate to="/login" />
           } />
           <Route path="/school-settings" element={
             isAuthenticated && isAdmin ? 
-              <AdminPage onLogout={handleLogout}><SchoolSettings /></AdminPage> : 
+              <><AdminNavigation onLogout={handleLogout} /><SchoolSettings /></> : 
               <Navigate to="/login" />
           } />
           
           {/* Parent Routes - ONLY for parent users */}
           <Route path="/parent-dashboard" element={
             isAuthenticated && isParent ? 
-              <ParentPage onLogout={handleLogout}><ParentDashboard /></ParentPage> : 
+              <><ParentNavigation onLogout={handleLogout} /><ParentDashboard /></> : 
               <Navigate to={isAdmin ? '/dashboard' : '/parent-login'} />
           } />
           
@@ -187,25 +187,6 @@ function AppContent() {
         </Routes>
       </div>
     </Router>
-  );
-}
-
-// Helper components
-function AdminPage({ children, onLogout }) {
-  return (
-    <>
-      <AdminNavigation onLogout={onLogout} />
-      {children}
-    </>
-  );
-}
-
-function ParentPage({ children, onLogout }) {
-  return (
-    <>
-      <ParentNavigation onLogout={onLogout} />
-      {children}
-    </>
   );
 }
 
