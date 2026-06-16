@@ -17,7 +17,8 @@ import ParentDashboard from './components/ParentDashboard';
 import UserManagement from './components/UserManagement';
 import './App.css';
 
-function Navigation({ onLogout }) {
+// Admin Navigation
+function AdminNavigation({ onLogout }) {
   const { schoolSettings } = useSchool();
 
   return (
@@ -41,10 +42,36 @@ function Navigation({ onLogout }) {
   );
 }
 
-function AuthenticatedPage({ children, onLogout }) {
+// Parent Navigation - Simple and clean
+function ParentNavigation({ onLogout }) {
+  const { schoolSettings } = useSchool();
+
+  return (
+    <nav className="parent-navbar">
+      <h1>🏫 {schoolSettings.school_name}</h1>
+      <div className="parent-nav-links">
+        <span className="parent-name">👤 {localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).full_name : 'Parent'}</span>
+        <button onClick={onLogout} className="parent-logout-btn">🚪 Logout</button>
+      </div>
+    </nav>
+  );
+}
+
+// Wrapper for admin pages
+function AdminPage({ children, onLogout }) {
   return (
     <>
-      <Navigation onLogout={onLogout} />
+      <AdminNavigation onLogout={onLogout} />
+      {children}
+    </>
+  );
+}
+
+// Wrapper for parent pages
+function ParentPage({ children, onLogout }) {
+  return (
+    <>
+      <ParentNavigation onLogout={onLogout} />
       {children}
     </>
   );
@@ -52,6 +79,7 @@ function AuthenticatedPage({ children, onLogout }) {
 
 function AppContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
+  const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -59,9 +87,17 @@ function AppContent() {
     const user = localStorage.getItem('user');
     
     if (token && user) {
-      setIsAuthenticated(true);
+      try {
+        const userData = JSON.parse(user);
+        setIsAuthenticated(true);
+        setUserRole(userData.role || 'admin');
+      } catch (e) {
+        setIsAuthenticated(false);
+        setUserRole(null);
+      }
     } else {
       setIsAuthenticated(false);
+      setUserRole(null);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
     }
@@ -69,13 +105,27 @@ function AppContent() {
   }, []);
 
   const handleLogin = () => {
-    setIsAuthenticated(true);
+    const user = localStorage.getItem('user');
+    if (user) {
+      try {
+        const userData = JSON.parse(user);
+        setIsAuthenticated(true);
+        setUserRole(userData.role || 'admin');
+      } catch (e) {
+        setIsAuthenticated(true);
+        setUserRole('admin');
+      }
+    } else {
+      setIsAuthenticated(true);
+      setUserRole('admin');
+    }
   };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setIsAuthenticated(false);
+    setUserRole(null);
     window.location.href = '/login';
   };
 
@@ -90,66 +140,70 @@ function AppContent() {
           <Route path="/login" element={<MainLogin onLogin={handleLogin} />} />
           <Route path="/parent-login" element={<ParentLogin onLogin={handleLogin} />} />
           
+          {/* Admin Routes */}
           <Route path="/dashboard" element={
-            isAuthenticated ? 
-              <AuthenticatedPage onLogout={handleLogout}><Dashboard /></AuthenticatedPage> : 
-              <Navigate to="/login" />
-          } />
-          <Route path="/parent-dashboard" element={
-            isAuthenticated ? 
-              <AuthenticatedPage onLogout={handleLogout}><ParentDashboard /></AuthenticatedPage> : 
-              <Navigate to="/parent-login" />
+            isAuthenticated && userRole !== 'parent' ? 
+              <AdminPage onLogout={handleLogout}><Dashboard /></AdminPage> : 
+              <Navigate to={userRole === 'parent' ? '/parent-dashboard' : '/login'} />
           } />
           <Route path="/students" element={
-            isAuthenticated ? 
-              <AuthenticatedPage onLogout={handleLogout}><StudentList /></AuthenticatedPage> : 
+            isAuthenticated && userRole !== 'parent' ? 
+              <AdminPage onLogout={handleLogout}><StudentList /></AdminPage> : 
               <Navigate to="/login" />
           } />
           <Route path="/add-student" element={
-            isAuthenticated ? 
-              <AuthenticatedPage onLogout={handleLogout}><AddStudent /></AuthenticatedPage> : 
+            isAuthenticated && userRole !== 'parent' ? 
+              <AdminPage onLogout={handleLogout}><AddStudent /></AdminPage> : 
               <Navigate to="/login" />
           } />
           <Route path="/attendance" element={
-            isAuthenticated ? 
-              <AuthenticatedPage onLogout={handleLogout}><Attendance /></AuthenticatedPage> : 
+            isAuthenticated && userRole !== 'parent' ? 
+              <AdminPage onLogout={handleLogout}><Attendance /></AdminPage> : 
               <Navigate to="/login" />
           } />
           <Route path="/grades" element={
-            isAuthenticated ? 
-              <AuthenticatedPage onLogout={handleLogout}><Grades /></AuthenticatedPage> : 
+            isAuthenticated && userRole !== 'parent' ? 
+              <AdminPage onLogout={handleLogout}><Grades /></AdminPage> : 
               <Navigate to="/login" />
           } />
           <Route path="/report-card" element={
-            isAuthenticated ? 
-              <AuthenticatedPage onLogout={handleLogout}><ReportCard /></AuthenticatedPage> : 
+            isAuthenticated && userRole !== 'parent' ? 
+              <AdminPage onLogout={handleLogout}><ReportCard /></AdminPage> : 
               <Navigate to="/login" />
           } />
           <Route path="/fees" element={
-            isAuthenticated ? 
-              <AuthenticatedPage onLogout={handleLogout}><Fees /></AuthenticatedPage> : 
+            isAuthenticated && userRole !== 'parent' ? 
+              <AdminPage onLogout={handleLogout}><Fees /></AdminPage> : 
               <Navigate to="/login" />
           } />
           <Route path="/advance-payment" element={
-            isAuthenticated ? 
-              <AuthenticatedPage onLogout={handleLogout}><AdvancePayment /></AuthenticatedPage> : 
+            isAuthenticated && userRole !== 'parent' ? 
+              <AdminPage onLogout={handleLogout}><AdvancePayment /></AdminPage> : 
               <Navigate to="/login" />
           } />
           <Route path="/school-fees" element={
-            isAuthenticated ? 
-              <AuthenticatedPage onLogout={handleLogout}><SchoolFees /></AuthenticatedPage> : 
+            isAuthenticated && userRole !== 'parent' ? 
+              <AdminPage onLogout={handleLogout}><SchoolFees /></AdminPage> : 
               <Navigate to="/login" />
           } />
           <Route path="/user-management" element={
-            isAuthenticated ? 
-              <AuthenticatedPage onLogout={handleLogout}><UserManagement /></AuthenticatedPage> : 
+            isAuthenticated && userRole !== 'parent' ? 
+              <AdminPage onLogout={handleLogout}><UserManagement /></AdminPage> : 
               <Navigate to="/login" />
           } />
           <Route path="/school-settings" element={
-            isAuthenticated ? 
-              <AuthenticatedPage onLogout={handleLogout}><SchoolSettings /></AuthenticatedPage> : 
+            isAuthenticated && userRole !== 'parent' ? 
+              <AdminPage onLogout={handleLogout}><SchoolSettings /></AdminPage> : 
               <Navigate to="/login" />
           } />
+          
+          {/* Parent Routes */}
+          <Route path="/parent-dashboard" element={
+            isAuthenticated && userRole === 'parent' ? 
+              <ParentPage onLogout={handleLogout}><ParentDashboard /></ParentPage> : 
+              <Navigate to={userRole !== 'parent' ? '/dashboard' : '/parent-login'} />
+          } />
+          
           <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
       </div>
