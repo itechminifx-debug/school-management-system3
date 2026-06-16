@@ -24,6 +24,7 @@ function MainLogin({ onLogin }) {
     }
 
     try {
+      // Admin and Teacher login use the same auth endpoint
       const response = await axios.post(`${apiUrl}/api/auth/login`, {
         email,
         password
@@ -37,8 +38,15 @@ function MainLogin({ onLogin }) {
           onLogin();
         }
         
-        // Redirect to dashboard
-        navigate('/dashboard');
+        // Redirect based on role
+        const userRole = response.data.user.role;
+        if (userRole === 'admin' || userRole === 'teacher') {
+          navigate('/dashboard');
+        } else if (userRole === 'parent') {
+          navigate('/parent-dashboard');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         setError('Invalid response from server');
       }
@@ -48,6 +56,17 @@ function MainLogin({ onLogin }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleParentRedirect = () => {
+    // Navigate to parent login page
+    navigate('/parent-login');
+  };
+
+  const handleTeacherRedirect = () => {
+    // For now, teacher uses same login as admin
+    setRole('teacher');
+    // You can add a message or change the form label
   };
 
   return (
@@ -82,7 +101,7 @@ function MainLogin({ onLogin }) {
           <button 
             type="button"
             className={`portal-btn ${role === 'teacher' ? 'active' : ''}`}
-            onClick={() => setRole('teacher')}
+            onClick={handleTeacherRedirect}
           >
             <span className="portal-icon">👨‍🏫</span>
             <span className="portal-name">Teacher</span>
@@ -91,7 +110,7 @@ function MainLogin({ onLogin }) {
           <button 
             type="button"
             className={`portal-btn ${role === 'parent' ? 'active' : ''}`}
-            onClick={() => setRole('parent')}
+            onClick={handleParentRedirect}
           >
             <span className="portal-icon">👨‍👩‍👧</span>
             <span className="portal-name">Parent</span>
@@ -128,15 +147,22 @@ function MainLogin({ onLogin }) {
 
           {role === 'parent' && (
             <div className="parent-info">
-              <p>📌 Parent Login Information</p>
-              <small>Parents can login using their registered email address. Contact the school administrator if you don't have login credentials.</small>
+              <p>📌 Parent Login</p>
+              <small>Parents, please click the Parent button or go to <strong>/parent-login</strong> to access your portal.</small>
             </div>
           )}
 
           {role === 'teacher' && (
             <div className="teacher-info">
-              <p>📌 Teacher Login Information</p>
+              <p>📌 Teacher Login</p>
               <small>Use your school email address and password provided by the administrator.</small>
+            </div>
+          )}
+
+          {role === 'admin' && (
+            <div className="teacher-info">
+              <p>📌 Administrator Login</p>
+              <small>Full system access. Use your admin credentials.</small>
             </div>
           )}
 
