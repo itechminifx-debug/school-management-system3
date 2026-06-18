@@ -101,5 +101,56 @@ router.get('/children', authenticateToken, async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch children', error: error.message });
     }
 });
+// ========================================
+// GET CHILD'S GRADES
+// ========================================
+router.get('/grades/:studentId/:term/:academicYear', authenticateToken, async (req, res) => {
+    const pool = getDb(req);
+    const parentId = req.user?.parentId;
+    const { studentId, term, academicYear } = req.params;
+    
+    console.log('Fetching grades for student:', studentId, 'parent:', parentId);
+    
+    if (!parentId) {
+        return res.status(400).json({ message: 'Parent ID not found in token' });
+    }
+    
+    try {
+        // Verify parent has access to this student
+        const accessCheck = await pool.query(
+            'SELECT * FROM parent_students WHERE parent_id = $1 AND student_id = $2',
+            [parentId, studentId]
+        );
+        
+        if (accessCheck.rows.length === 0) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+        
+        // Get student info
+        const studentResult = await pool.query(
+            `SELECT s.id, s.full_name, s.admission_number, c.name as class_name
+             FROM students s
+             JOIN class_levels c ON s.class_level_id = c.id
+             WHERE s.id = $1`,
+            [studentId]
+        );
+        
+        // Get grades - return empty array if no grades
+        const gradesResult = await pool.query(
+            `SELECT subject, score, grade_letter, term, academic_year
+             FROM grades
+             WHERE student_id = $1 AND term = $2 AND academic_year = $3`,
+            [studentId, term, academicYear]
+        );
+        
+        res.json({
+            student: studentResult.rows[0] || null,
+            grades: gradesResult.rows || []
+        });
+    } catch (error) {
+        console.error('Error fetching grades:', error);
+        res.status(500).json({ message: 'Failed to fetch grades', error: error.message });
+    }
+});
 
 module.exports = router;
