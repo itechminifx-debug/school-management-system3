@@ -2,16 +2,15 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 function UserManagement() {
-  const [users, setUsers] = useState([]);
   const [parents, setParents] = useState([]);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [showCreateParent, setShowCreateParent] = useState(false);
-  const [showCreateTeacher, setShowCreateTeacher] = useState(false);
+  const [showEditParent, setShowEditParent] = useState(false);
+  const [editingParent, setEditingParent] = useState(null);
   
-  // Parent form state
   const [parentForm, setParentForm] = useState({
     full_name: '',
     email: '',
@@ -21,40 +20,37 @@ function UserManagement() {
     student_ids: []
   });
 
-  // Teacher form state
-  const [teacherForm, setTeacherForm] = useState({
-    full_name: '',
-    email: '',
-    phone: '',
-    password: '',
-    role: 'teacher'
-  });
-
   const apiUrl = 'https://school-management-api-5mml.onrender.com';
 
   useEffect(() => {
     fetchData();
+    fetchStudents();
   }, []);
 
   const fetchData = async () => {
     const token = localStorage.getItem('token');
     try {
-      // Fetch parents
       const parentsRes = await axios.get(`${apiUrl}/api/parent/all`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setParents(parentsRes.data.parents || []);
-
-      // Fetch students for parent linking
-      const studentsRes = await axios.get(`${apiUrl}/api/students`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setStudents(studentsRes.data.students || []);
     } catch (error) {
-      console.error('Error fetching data:', error);
-      setError('Failed to load data');
+      console.error('Error fetching parents:', error);
+      setError('Failed to load parents data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchStudents = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      const response = await axios.get(`${apiUrl}/api/students`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setStudents(response.data.students || []);
+    } catch (error) {
+      console.error('Error fetching students:', error);
     }
   };
 
@@ -72,10 +68,6 @@ function UserManagement() {
     } else {
       setParentForm({ ...parentForm, [name]: value });
     }
-  };
-
-  const handleTeacherFormChange = (e) => {
-    setTeacherForm({ ...teacherForm, [e.target.name]: e.target.value });
   };
 
   const handleCreateParent = async (e) => {
@@ -110,7 +102,20 @@ function UserManagement() {
     }
   };
 
-  const handleCreateTeacher = async (e) => {
+  const handleEditParent = (parent) => {
+    setEditingParent(parent);
+    setParentForm({
+      full_name: parent.full_name || '',
+      email: parent.email || '',
+      phone: parent.phone || '',
+      address: parent.address || '',
+      password: '',
+      student_ids: parent.student_ids || []
+    });
+    setShowEditParent(true);
+  };
+
+  const handleUpdateParent = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
@@ -118,31 +123,40 @@ function UserManagement() {
 
     const token = localStorage.getItem('token');
     try {
-      await axios.post(`${apiUrl}/api/auth/register`, {
-        full_name: teacherForm.full_name,
-        email: teacherForm.email,
-        password: teacherForm.password,
-        role: 'teacher',
-        school_name: 'School',
-        school_phone: teacherForm.phone || '',
-        school_address: ''
-      }, {
+      await axios.put(`${apiUrl}/api/parent/${editingParent.id}`, parentForm, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      setMessage('✅ Teacher account created successfully!');
-      setTeacherForm({
-        full_name: '',
-        email: '',
-        phone: '',
-        password: '',
-        role: 'teacher'
-      });
-      setShowCreateTeacher(false);
+      setMessage('✅ Parent updated successfully!');
+      setShowEditParent(false);
+      setEditingParent(null);
       fetchData();
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {
-      setError(error.response?.data?.message || 'Failed to create teacher account');
+      setError(error.response?.data?.message || 'Failed to update parent');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteParent = async (parentId, parentName) => {
+    if (!window.confirm(`⚠️ Delete Parent Account\n\nAre you sure you want to delete ${parentName}?\n\nThis action cannot be undone.`)) {
+      return;
+    }
+
+    setLoading(true);
+    const token = localStorage.getItem('token');
+    try {
+      await axios.delete(`${apiUrl}/api/parent/${parentId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setMessage(`🗑️ Parent ${parentName} deleted successfully!`);
+      fetchData();
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error) {
+      setError('Failed to delete parent');
       setTimeout(() => setError(''), 3000);
     } finally {
       setLoading(false);
@@ -160,19 +174,13 @@ function UserManagement() {
         {message && <div className="success">{message}</div>}
         {error && <div className="error">{error}</div>}
 
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
+        {/* Create Parent Button */}
+        <div style={{ marginBottom: '2rem' }}>
           <button 
             onClick={() => setShowCreateParent(!showCreateParent)}
             style={{ background: '#6366f1' }}
           >
             {showCreateParent ? 'Cancel' : '➕ Create Parent Account'}
-          </button>
-          <button 
-            onClick={() => setShowCreateTeacher(!showCreateTeacher)}
-            style={{ background: '#10b981' }}
-          >
-            {showCreateTeacher ? 'Cancel' : '👨‍🏫 Create Teacher Account'}
           </button>
         </div>
 
@@ -212,7 +220,7 @@ function UserManagement() {
                   />
                 </div>
                 <div>
-                  <label>Password:</label>
+                  <label>Password (min 6 chars):</label>
                   <input
                     type="password"
                     name="password"
@@ -258,57 +266,111 @@ function UserManagement() {
           </div>
         )}
 
-        {/* Create Teacher Form */}
-        {showCreateTeacher && (
-          <div className="card" style={{ background: '#f8fafc' }}>
-            <h3>👨‍🏫 Create Teacher Account</h3>
-            <form onSubmit={handleCreateTeacher}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
-                <div>
-                  <label>Full Name:</label>
-                  <input
-                    type="text"
-                    name="full_name"
-                    value={teacherForm.full_name}
-                    onChange={handleTeacherFormChange}
-                    required
-                  />
+        {/* Edit Parent Modal */}
+        {showEditParent && editingParent && (
+          <div style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            width: '100%', 
+            height: '100%', 
+            background: 'rgba(0,0,0,0.5)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            zIndex: 1000 
+          }}>
+            <div style={{ 
+              background: 'white', 
+              padding: '2rem', 
+              borderRadius: '12px', 
+              width: '500px', 
+              maxWidth: '90%',
+              maxHeight: '90%',
+              overflowY: 'auto'
+            }}>
+              <h2>✏️ Edit Parent</h2>
+              <form onSubmit={handleUpdateParent}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label>Full Name:</label>
+                    <input
+                      type="text"
+                      name="full_name"
+                      value={parentForm.full_name}
+                      onChange={handleParentFormChange}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label>Email:</label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={parentForm.email}
+                      onChange={handleParentFormChange}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label>Phone:</label>
+                    <input
+                      type="text"
+                      name="phone"
+                      value={parentForm.phone}
+                      onChange={handleParentFormChange}
+                    />
+                  </div>
+                  <div>
+                    <label>New Password (leave blank to keep current):</label>
+                    <input
+                      type="password"
+                      name="password"
+                      value={parentForm.password}
+                      onChange={handleParentFormChange}
+                      minLength="6"
+                    />
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label>Address:</label>
+                    <textarea
+                      name="address"
+                      value={parentForm.address}
+                      onChange={handleParentFormChange}
+                      rows="2"
+                    />
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label>Link to Students:</label>
+                    <select
+                      name="student_ids"
+                      multiple
+                      value={parentForm.student_ids}
+                      onChange={handleParentFormChange}
+                      style={{ height: '100px', width: '100%' }}
+                    >
+                      {students.map(student => (
+                        <option key={student.id} value={student.id}>
+                          {student.full_name} ({student.admission_number})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label>Email:</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={teacherForm.email}
-                    onChange={handleTeacherFormChange}
-                    required
-                  />
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                  <button type="submit" disabled={loading} style={{ flex: 1 }}>
+                    {loading ? 'Saving...' : '💾 Save Changes'}
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => { setShowEditParent(false); setEditingParent(null); }}
+                    style={{ background: '#95a5a6' }}
+                  >
+                    Cancel
+                  </button>
                 </div>
-                <div>
-                  <label>Phone:</label>
-                  <input
-                    type="text"
-                    name="phone"
-                    value={teacherForm.phone}
-                    onChange={handleTeacherFormChange}
-                  />
-                </div>
-                <div>
-                  <label>Password:</label>
-                  <input
-                    type="password"
-                    name="password"
-                    value={teacherForm.password}
-                    onChange={handleTeacherFormChange}
-                    required
-                    minLength="6"
-                  />
-                </div>
-              </div>
-              <button type="submit" disabled={loading} style={{ marginTop: '1rem', width: '100%' }}>
-                {loading ? 'Creating...' : 'Create Teacher Account'}
-              </button>
-            </form>
+              </form>
+            </div>
           </div>
         )}
 
@@ -318,14 +380,14 @@ function UserManagement() {
           <p>No parents registered yet.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#1e3c72', color: 'white' }}>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th>Children</th>
-                  <th>Created</th>
+                  <th style={{ padding: '10px' }}>Name</th>
+                  <th style={{ padding: '10px' }}>Email</th>
+                  <th style={{ padding: '10px' }}>Phone</th>
+                  <th style={{ padding: '10px' }}>Children</th>
+                  <th style={{ padding: '10px', textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -335,7 +397,20 @@ function UserManagement() {
                     <td>{parent.email}</td>
                     <td>{parent.phone || '-'}</td>
                     <td>{parent.children_count || 0}</td>
-                    <td>{new Date(parent.created_at).toLocaleDateString()}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <button 
+                        onClick={() => handleEditParent(parent)}
+                        style={{ background: '#f39c12', padding: '4px 12px', marginRight: '5px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteParent(parent.id, parent.full_name)}
+                        style={{ background: '#dc3545', padding: '4px 12px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}
+                      >
+                        🗑️ Delete
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
