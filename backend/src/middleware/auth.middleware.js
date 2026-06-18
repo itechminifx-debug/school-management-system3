@@ -11,7 +11,10 @@ const authenticateToken = (req, res, next) => {
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         req.user = decoded;
-        console.log('Authenticated user:', req.user);
+        console.log('=== Auth Middleware ===');
+        console.log('Decoded token:', decoded);
+        console.log('parentId:', decoded.parentId);
+        console.log('role:', decoded.role);
         next();
     } catch (error) {
         console.error('Token verification error:', error);
