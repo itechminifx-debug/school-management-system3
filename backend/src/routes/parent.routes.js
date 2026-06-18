@@ -344,7 +344,7 @@ router.post('/login', async (req, res) => {
 });
 
 // ========================================
-// GET PARENT'S CHILDREN
+// GET PARENT'S CHILDREN - NO ROLE CHECK
 // ========================================
 router.get('/children', authenticateToken, async (req, res) => {
     const pool = getDb(req);
@@ -360,7 +360,6 @@ router.get('/children', authenticateToken, async (req, res) => {
     }
     
     try {
-        // Check if parent exists
         const parentCheck = await pool.query('SELECT id, full_name FROM parents WHERE id = $1', [parentId]);
         if (parentCheck.rows.length === 0) {
             console.log('Parent not found in database:', parentId);
@@ -368,7 +367,6 @@ router.get('/children', authenticateToken, async (req, res) => {
         }
         console.log('Parent found:', parentCheck.rows[0]);
         
-        // Get children
         const result = await pool.query(
             `SELECT s.id, s.full_name, s.admission_number, s.class_level_id, c.name as class_name,
                     ps.relationship
@@ -389,6 +387,7 @@ router.get('/children', authenticateToken, async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch children', error: error.message });
     }
 });
+
 // ========================================
 // GET CHILD'S GRADES
 // ========================================
