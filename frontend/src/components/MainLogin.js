@@ -24,7 +24,6 @@ function MainLogin({ onLogin }) {
     }
 
     try {
-      // Admin and Teacher login use the same auth endpoint
       const response = await axios.post(`${apiUrl}/api/auth/login`, {
         email,
         password
@@ -38,35 +37,34 @@ function MainLogin({ onLogin }) {
           onLogin();
         }
         
-        // Redirect based on role
-        const userRole = response.data.user.role;
-        if (userRole === 'admin' || userRole === 'teacher') {
-          navigate('/dashboard');
-        } else if (userRole === 'parent') {
-          navigate('/parent-dashboard');
-        } else {
-          navigate('/dashboard');
-        }
+        navigate('/dashboard');
       } else {
         setError('Invalid response from server');
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+      
+      // Check if this is a parent account trying to login
+      if (err.response?.data?.redirect === '/parent-login') {
+        setError('⚠️ This is a parent account. Please use the Parent Portal login page.');
+        // Redirect to parent login after 2 seconds
+        setTimeout(() => {
+          window.location.href = '/parent-login';
+        }, 2000);
+      } else {
+        setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleParentRedirect = () => {
-    // Navigate to parent login page
     navigate('/parent-login');
   };
 
   const handleTeacherRedirect = () => {
-    // For now, teacher uses same login as admin
     setRole('teacher');
-    // You can add a message or change the form label
   };
 
   return (
@@ -87,7 +85,6 @@ function MainLogin({ onLogin }) {
           <p>Welcome back! Please select your portal to continue</p>
         </div>
 
-        {/* Portal Selection Buttons */}
         <div className="portal-selector">
           <button 
             type="button"
@@ -118,7 +115,6 @@ function MainLogin({ onLogin }) {
           </button>
         </div>
 
-        {/* Login Form */}
         <form onSubmit={handleSubmit} className="login-form">
           {error && <div className="error-message">{error}</div>}
           
