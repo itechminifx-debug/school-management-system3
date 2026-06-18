@@ -123,16 +123,18 @@ function UserManagement() {
 
     const token = localStorage.getItem('token');
     try {
-      await axios.put(`${apiUrl}/api/parent/${editingParent.id}`, parentForm, {
+      const response = await axios.put(`${apiUrl}/api/parent/${editingParent.id}`, parentForm, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
+      console.log('Update response:', response.data);
       setMessage('✅ Parent updated successfully!');
       setShowEditParent(false);
       setEditingParent(null);
       fetchData();
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {
+      console.error('Update error:', error.response?.data);
       setError(error.response?.data?.message || 'Failed to update parent');
       setTimeout(() => setError(''), 3000);
     } finally {
@@ -148,15 +150,17 @@ function UserManagement() {
     setLoading(true);
     const token = localStorage.getItem('token');
     try {
-      await axios.delete(`${apiUrl}/api/parent/${parentId}`, {
+      const response = await axios.delete(`${apiUrl}/api/parent/${parentId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
+      console.log('Delete response:', response.data);
       setMessage(`🗑️ Parent ${parentName} deleted successfully!`);
       fetchData();
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {
-      setError('Failed to delete parent');
+      console.error('Delete error:', error.response?.data);
+      setError(error.response?.data?.message || 'Failed to delete parent');
       setTimeout(() => setError(''), 3000);
     } finally {
       setLoading(false);
