@@ -19,26 +19,76 @@ function ParentDashboard() {
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
+    console.log('Parent user data:', userData);
     if (userData) {
-      setParentInfo(JSON.parse(userData));
+      try {
+        const parsed = JSON.parse(userData);
+        setParentInfo(parsed);
+        console.log('Parsed parent info:', parsed);
+      } catch (e) {
+        console.error('Error parsing user data:', e);
+      }
     }
     fetchChildren();
   }, []);
 
   const fetchChildren = async () => {
+    setLoading(true);
     const token = localStorage.getItem('token');
+    console.log('Fetching children with token:', token ? 'Token exists' : 'No token');
+    console.log('Token value:', token);
+    
+    if (!token) {
+      setError('No authentication token found. Please login again.');
+      setLoading(false);
+      return;
+    }
+    
     try {
       const response = await axios.get(`${apiUrl}/api/parent/children`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { 
+          Authorization: `Bearer ${token}`
+        }
       });
-      setChildren(response.data.children);
-      if (response.data.children.length > 0) {
+      
+      console.log('Children response status:', response.status);
+      console.log('Children response data:', response.data);
+      
+      if (response.data.children && response.data.children.length > 0) {
+        setChildren(response.data.children);
         setSelectedChild(response.data.children[0]);
         fetchChildData(response.data.children[0].id);
+        setError('');
+      } else {
+        setChildren([]);
+        setError('No children linked to your account. Please contact the school administrator.');
       }
     } catch (error) {
       console.error('Error fetching children:', error);
-      setError('Failed to load children data');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      console.error('Error headers:', error.response?.headers);
+      
+      if (error.response?.status === 403) {
+        setError('Access denied. Please login again.');
+        // Clear token and redirect to login
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('userRole');
+        setTimeout(() => {
+          window.location.href = '/parent-login';
+        }, 2000);
+      } else if (error.response?.status === 401) {
+        setError('Session expired. Please login again.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('userRole');
+        setTimeout(() => {
+          window.location.href = '/parent-login';
+        }, 2000);
+      } else {
+        setError(error.response?.data?.message || 'Failed to load children data');
+      }
     } finally {
       setLoading(false);
     }
@@ -48,12 +98,15 @@ function ParentDashboard() {
     const token = localStorage.getItem('token');
     const currentYear = new Date().getFullYear();
     
+    console.log('Fetching data for student:', studentId);
+    
     try {
       // Fetch grades
       const gradesRes = await axios.get(`${apiUrl}/api/parent/grades/${studentId}/Term%201/${currentYear}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setGrades(gradesRes.data.grades || []);
+      console.log('Grades:', gradesRes.data);
 
       // Fetch attendance
       const attendanceRes = await axios.get(`${apiUrl}/api/parent/attendance/${studentId}`, {
@@ -61,12 +114,14 @@ function ParentDashboard() {
       });
       setAttendance(attendanceRes.data.attendance || []);
       setAttendanceSummary(attendanceRes.data.summary || {});
+      console.log('Attendance:', attendanceRes.data);
 
       // Fetch fees
       const feesRes = await axios.get(`${apiUrl}/api/parent/fees/${studentId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setFees(feesRes.data.fees || []);
+      console.log('Fees:', feesRes.data);
     } catch (error) {
       console.error('Error fetching child data:', error);
       setError('Failed to load child data');
@@ -92,16 +147,38 @@ function ParentDashboard() {
     return 'F';
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('userRole');
+    window.location.href = '/parent-login';
+  };
+
   if (loading) {
     return <div className="container">Loading...</div>;
   }
 
   if (children.length === 0) {
     return (
-      <div className="container">
-        <div className="card">
-          <h2>👨‍👩‍👧 Parent Dashboard</h2>
-          <div className="error">No children linked to your account. Please contact the school administrator.</div>
+      <div className="parent-dashboard-container">
+        <div className="container">
+          <div className="card">
+            <h2>👨‍👩‍👧 Parent Dashboard</h2>
+            <div className="error">⚠️ {error || 'No children linked to your account. Please contact the school administrator.'}</div>
+            {parentInfo && (
+              <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
+                <p><strong>Parent ID:</strong> {parentInfo.id}</p>
+                <p><strong>Name:</strong> {parentInfo.full_name}</p>
+                <p><strong>Email:</strong> {parentInfo.email}</p>
+              </div>
+            )}
+            <button 
+              onClick={handleLogout}
+              style={{ marginTop: '1rem', background: '#dc3545' }}
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </div>
     );
