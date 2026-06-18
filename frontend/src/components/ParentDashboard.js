@@ -100,14 +100,22 @@ function ParentDashboard() {
     
     console.log('Fetching data for student:', studentId);
     
-    try {
-      // Fetch grades
-      const gradesRes = await axios.get(`${apiUrl}/api/parent/grades/${studentId}/Term%201/${currentYear}`, {
+    // Fetch grades - handle 404 gracefully
+try {
+    const gradesRes = await axios.get(`${apiUrl}/api/parent/grades/${studentId}/Term%201/${currentYear}`, {
         headers: { Authorization: `Bearer ${token}` }
-      });
-      setGrades(gradesRes.data.grades || []);
-      console.log('Grades:', gradesRes.data);
-
+    });
+    setGrades(gradesRes.data.grades || []);
+    console.log('Grades:', gradesRes.data);
+} catch (error) {
+    if (error.response?.status === 404) {
+        // No grades found - this is normal
+        setGrades([]);
+        console.log('No grades available for this student');
+    } else {
+        console.error('Error fetching grades:', error);
+    }
+}
       // Fetch attendance
       const attendanceRes = await axios.get(`${apiUrl}/api/parent/attendance/${studentId}`, {
         headers: { Authorization: `Bearer ${token}` }
