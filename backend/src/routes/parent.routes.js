@@ -118,6 +118,7 @@ router.post('/create', authenticateToken, authorizeRole(['admin']), async (req, 
         console.log('User created with ID:', userResult.rows[0].id, 'Role: parent');
         
         if (student_ids && student_ids.length > 0) {
+            console.log('Linking students:', student_ids);
             for (const studentId of student_ids) {
                 await pool.query(
                     `INSERT INTO parent_students (parent_id, student_id, relationship)
@@ -127,6 +128,8 @@ router.post('/create', authenticateToken, authorizeRole(['admin']), async (req, 
                 );
                 console.log('Linked student:', studentId);
             }
+        } else {
+            console.log('No students to link');
         }
         
         await pool.query('COMMIT');
@@ -135,7 +138,8 @@ router.post('/create', authenticateToken, authorizeRole(['admin']), async (req, 
             message: 'Parent account created successfully',
             parent_id: parentId,
             user_id: userResult.rows[0].id,
-            role: 'parent'
+            role: 'parent',
+            linked_students: student_ids || []
         });
     } catch (error) {
         await pool.query('ROLLBACK');
@@ -277,9 +281,12 @@ router.post('/login', async (req, res) => {
     const pool = getDb(req);
     const { email, password } = req.body;
     
+    console.log('Parent login attempt:', email);
+    
     try {
         const result = await pool.query(
-            `SELECT p.id, p.full_name, p.email, p.phone, p.password_hash, u.id as user_id, u.role
+            `SELECT p.id, p.full_name, p.email, p.phone, p.password_hash, 
+                    u.id as user_id, u.role
              FROM parents p
              JOIN users u ON p.id = u.parent_id
              WHERE p.email = $1`,
@@ -287,16 +294,21 @@ router.post('/login', async (req, res) => {
         );
         
         if (result.rows.length === 0) {
+            console.log('Parent not found:', email);
             return res.status(401).json({ message: 'Invalid credentials' });
         }
         
         const parent = result.rows[0];
+        console.log('Parent found:', parent.id, parent.full_name);
+        
         const isValid = await bcrypt.compare(password, parent.password_hash);
         if (!isValid) {
+            console.log('Invalid password for parent:', email);
             return res.status(401).json({ message: 'Invalid credentials' });
         }
         
         if (parent.role !== 'parent') {
+            console.log('User is not a parent:', parent.role);
             return res.status(403).json({ message: 'Access denied. This account is not a parent account.' });
         }
         
@@ -311,6 +323,8 @@ router.post('/login', async (req, res) => {
             process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );
+        
+        console.log('Parent login successful:', parent.id, parent.email);
         
         res.json({
             message: 'Login successful',
@@ -334,7 +348,14 @@ router.post('/login', async (req, res) => {
 // ========================================
 router.get('/children', authenticateToken, async (req, res) => {
     const pool = getDb(req);
-    const parentId = req.user.parentId;
+    const parentId = req.user?.parentId;
+    
+    console.log('Fetching children for parentId:', parentId);
+    console.log('Full user object:', req.user);
+    
+    if (!parentId) {
+        return res.status(400).json({ message: 'Parent ID not found in token. Please login again.' });
+    }
     
     try {
         const result = await pool.query(
@@ -348,10 +369,13 @@ router.get('/children', authenticateToken, async (req, res) => {
             [parentId]
         );
         
+        console.log('Found children:', result.rows.length);
+        console.log('Children data:', result.rows);
+        
         res.json({ children: result.rows });
     } catch (error) {
         console.error('Error fetching children:', error);
-        res.status(500).json({ message: 'Failed to fetch children' });
+        res.status(500).json({ message: 'Failed to fetch children', error: error.message });
     }
 });
 
@@ -360,8 +384,14 @@ router.get('/children', authenticateToken, async (req, res) => {
 // ========================================
 router.get('/grades/:studentId/:term/:academicYear', authenticateToken, async (req, res) => {
     const pool = getDb(req);
-    const parentId = req.user.parentId;
+    const parentId = req.user?.parentId;
     const { studentId, term, academicYear } = req.params;
+    
+    console.log('Fetching grades for student:', studentId, 'parent:', parentId);
+    
+    if (!parentId) {
+        return res.status(400).json({ message: 'Parent ID not found in token' });
+    }
     
     try {
         const accessCheck = await pool.query(
@@ -393,7 +423,7 @@ router.get('/grades/:studentId/:term/:academicYear', authenticateToken, async (r
         });
     } catch (error) {
         console.error('Error fetching grades:', error);
-        res.status(500).json({ message: 'Failed to fetch grades' });
+        res.status(500).json({ message: 'Failed to fetch grades', error: error.message });
     }
 });
 
@@ -402,8 +432,14 @@ router.get('/grades/:studentId/:term/:academicYear', authenticateToken, async (r
 // ========================================
 router.get('/attendance/:studentId', authenticateToken, async (req, res) => {
     const pool = getDb(req);
-    const parentId = req.user.parentId;
+    const parentId = req.user?.parentId;
     const { studentId } = req.params;
+    
+    console.log('Fetching attendance for student:', studentId, 'parent:', parentId);
+    
+    if (!parentId) {
+        return res.status(400).json({ message: 'Parent ID not found in token' });
+    }
     
     try {
         const accessCheck = await pool.query(
@@ -442,7 +478,7 @@ router.get('/attendance/:studentId', authenticateToken, async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching attendance:', error);
-        res.status(500).json({ message: 'Failed to fetch attendance' });
+        res.status(500).json({ message: 'Failed to fetch attendance', error: error.message });
     }
 });
 
@@ -451,8 +487,14 @@ router.get('/attendance/:studentId', authenticateToken, async (req, res) => {
 // ========================================
 router.get('/fees/:studentId', authenticateToken, async (req, res) => {
     const pool = getDb(req);
-    const parentId = req.user.parentId;
+    const parentId = req.user?.parentId;
     const { studentId } = req.params;
+    
+    console.log('Fetching fees for student:', studentId, 'parent:', parentId);
+    
+    if (!parentId) {
+        return res.status(400).json({ message: 'Parent ID not found in token' });
+    }
     
     try {
         const accessCheck = await pool.query(
@@ -474,7 +516,7 @@ router.get('/fees/:studentId', authenticateToken, async (req, res) => {
         res.json({ fees: result.rows });
     } catch (error) {
         console.error('Error fetching fees:', error);
-        res.status(500).json({ message: 'Failed to fetch fees' });
+        res.status(500).json({ message: 'Failed to fetch fees', error: error.message });
     }
 });
 
