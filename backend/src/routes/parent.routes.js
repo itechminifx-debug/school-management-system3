@@ -350,14 +350,25 @@ router.get('/children', authenticateToken, async (req, res) => {
     const pool = getDb(req);
     const parentId = req.user?.parentId;
     
-    console.log('Fetching children for parentId:', parentId);
-    console.log('Full user object:', req.user);
+    console.log('=== GET /children ===');
+    console.log('Parent ID from token:', parentId);
+    console.log('Full user:', req.user);
     
     if (!parentId) {
+        console.log('No parentId in token');
         return res.status(400).json({ message: 'Parent ID not found in token. Please login again.' });
     }
     
     try {
+        // Check if parent exists
+        const parentCheck = await pool.query('SELECT id, full_name FROM parents WHERE id = $1', [parentId]);
+        if (parentCheck.rows.length === 0) {
+            console.log('Parent not found in database:', parentId);
+            return res.status(404).json({ message: 'Parent not found' });
+        }
+        console.log('Parent found:', parentCheck.rows[0]);
+        
+        // Get children
         const result = await pool.query(
             `SELECT s.id, s.full_name, s.admission_number, s.class_level_id, c.name as class_name,
                     ps.relationship
@@ -369,8 +380,8 @@ router.get('/children', authenticateToken, async (req, res) => {
             [parentId]
         );
         
-        console.log('Found children:', result.rows.length);
-        console.log('Children data:', result.rows);
+        console.log('Found children count:', result.rows.length);
+        console.log('Children data:', JSON.stringify(result.rows, null, 2));
         
         res.json({ children: result.rows });
     } catch (error) {
@@ -378,7 +389,6 @@ router.get('/children', authenticateToken, async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch children', error: error.message });
     }
 });
-
 // ========================================
 // GET CHILD'S GRADES
 // ========================================
