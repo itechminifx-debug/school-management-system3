@@ -69,8 +69,8 @@ router.post('/register', async (req, res) => {
 
 // LOGIN - Authenticate user
 router.post('/login', async (req, res) => {
-    const { email, password } = req.body;
     const pool = getDb(req);
+    const { email, password } = req.body;
 
     try {
         // Find user
@@ -90,6 +90,16 @@ router.post('/login', async (req, res) => {
         const isValidPassword = await bcrypt.compare(password, user.password_hash);
         if (!isValidPassword) {
             return res.status(401).json({ message: 'Invalid email or password' });
+        }
+
+        // ========================================
+        // IMPORTANT: Block parents from admin login
+        // ========================================
+        if (user.role === 'parent') {
+            return res.status(403).json({ 
+                message: 'Access denied. This is a parent account. Please use the Parent Portal.',
+                redirect: '/parent-login'
+            });
         }
 
         // Generate token
