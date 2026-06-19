@@ -36,7 +36,6 @@ function ParentDashboard() {
     setLoading(true);
     const token = localStorage.getItem('token');
     console.log('Fetching children with token:', token ? 'Token exists' : 'No token');
-    console.log('Token value:', token);
     
     if (!token) {
       setError('No authentication token found. Please login again.');
@@ -51,8 +50,7 @@ function ParentDashboard() {
         }
       });
       
-      console.log('Children response status:', response.status);
-      console.log('Children response data:', response.data);
+      console.log('Children response:', response.data);
       
       if (response.data.children && response.data.children.length > 0) {
         setChildren(response.data.children);
@@ -66,20 +64,9 @@ function ParentDashboard() {
     } catch (error) {
       console.error('Error fetching children:', error);
       console.error('Error response:', error.response?.data);
-      console.error('Error status:', error.response?.status);
-      console.error('Error headers:', error.response?.headers);
       
       if (error.response?.status === 403) {
         setError('Access denied. Please login again.');
-        // Clear token and redirect to login
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('userRole');
-        setTimeout(() => {
-          window.location.href = '/parent-login';
-        }, 2000);
-      } else if (error.response?.status === 401) {
-        setError('Session expired. Please login again.');
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('userRole');
@@ -100,22 +87,14 @@ function ParentDashboard() {
     
     console.log('Fetching data for student:', studentId);
     
-    // Fetch grades - handle 404 gracefully
-try {
-    const gradesRes = await axios.get(`${apiUrl}/api/parent/grades/${studentId}/Term%201/${currentYear}`, {
+    try {
+      // Fetch grades
+      const gradesRes = await axios.get(`${apiUrl}/api/parent/grades/${studentId}/Term%201/${currentYear}`, {
         headers: { Authorization: `Bearer ${token}` }
-    });
-    setGrades(gradesRes.data.grades || []);
-    console.log('Grades:', gradesRes.data);
-} catch (error) {
-    if (error.response?.status === 404) {
-        // No grades found - this is normal
-        setGrades([]);
-        console.log('No grades available for this student');
-    } else {
-        console.error('Error fetching grades:', error);
-    }
-}
+      });
+      setGrades(gradesRes.data.grades || []);
+      console.log('Grades:', gradesRes.data);
+
       // Fetch attendance
       const attendanceRes = await axios.get(`${apiUrl}/api/parent/attendance/${studentId}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -283,7 +262,12 @@ try {
                   <p>Subjects</p>
                 </div>
                 <div className="stat-card">
-                  <h3>{fees.filter(f => f.status === 'paid').length}</h3>
+                  <h3>
+                    {fees.filter(f => {
+                      const balance = parseFloat(f.total_amount || 0) - parseFloat(f.amount_paid || 0);
+                      return balance <= 0;
+                    }).length}
+                  </h3>
                   <p>Fees Paid</p>
                 </div>
               </div>
@@ -387,35 +371,42 @@ try {
                           <th>Fee Type</th>
                           <th>Term</th>
                           <th>Year</th>
-                          <th>Amount</th>
-                          <th>Paid</th>
-                          <th>Balance</th>
+                          <th>Total (₵)</th>
+                          <th>Paid (₵)</th>
+                          <th>Balance (₵)</th>
                           <th>Status</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {fees.map((fee, index) => (
-                          <tr key={index}>
-                            <td>{fee.fee_name}</td>
-                            <td>{fee.term}</td>
-                            <td>{fee.academic_year}</td>
-                            <td>₵{parseFloat(fee.total_amount).toFixed(2)}</td>
-                            <td>₵{parseFloat(fee.amount_paid).toFixed(2)}</td>
-                            <td>₵{parseFloat(fee.balance).toFixed(2)}</td>
-                            <td>
-                              <span style={{
-                                background: fee.status === 'paid' ? '#10b981' : 
-                                           fee.status === 'partial' ? '#f59e0b' : '#ef4444',
-                                color: 'white',
-                                padding: '2px 12px',
-                                borderRadius: '20px',
-                                fontSize: '12px'
-                              }}>
-                                {fee.status.toUpperCase()}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        {fees.map((fee, index) => {
+                          const balance = parseFloat(fee.total_amount || 0) - parseFloat(fee.amount_paid || 0);
+                          let status = fee.status || 'unpaid';
+                          if (balance <= 0) status = 'paid';
+                          else if (parseFloat(fee.amount_paid || 0) > 0) status = 'partial';
+                          
+                          return (
+                            <tr key={index}>
+                              <td>{fee.fee_name || 'Unknown Fee'}</td>
+                              <td>{fee.term || 'N/A'}</td>
+                              <td>{fee.academic_year || 'N/A'}</td>
+                              <td>₵{parseFloat(fee.total_amount || 0).toFixed(2)}</td>
+                              <td>₵{parseFloat(fee.amount_paid || 0).toFixed(2)}</td>
+                              <td>₵{balance.toFixed(2)}</td>
+                              <td>
+                                <span style={{
+                                  background: status === 'paid' ? '#10b981' : 
+                                             status === 'partial' ? '#f59e0b' : '#ef4444',
+                                  color: 'white',
+                                  padding: '2px 12px',
+                                  borderRadius: '20px',
+                                  fontSize: '12px'
+                                }}>
+                                  {status.toUpperCase()}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
