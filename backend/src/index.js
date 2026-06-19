@@ -27,17 +27,32 @@ pool.connect((err, client, release) => {
     }
 });
 
-// Middleware
+// ========================================
+// MIDDLEWARE
+// ========================================
 app.use(cors());
 app.use(helmet());
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ========================================
+// DISABLE CACHING FOR ALL API RESPONSES
+// This ensures parents always see real-time data
+// ========================================
+app.use((req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    next();
+});
+
 // Make pool available to routes
 app.set('db', pool);
 
-// Test route
+// ========================================
+// TEST ROUTE
+// ========================================
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'School Management System API is running' });
 });
@@ -60,11 +75,13 @@ const parentRoutes = require('./routes/parent.routes');
 // REGISTER ROUTES
 // ========================================
 
-// Public routes (no auth)
+// 1. Public routes (no auth needed)
 app.use('/api/auth', authRoutes);
-app.use('/api/parent', parentRoutes);  // Parent routes handle their own auth
 
-// Protected routes (require auth)
+// 2. Parent routes (handles its own auth)
+app.use('/api/parent', parentRoutes);
+
+// 3. Protected routes (require auth)
 const { authenticateToken } = require('./middleware/auth.middleware');
 
 app.use('/api/students', authenticateToken, studentRoutes);
@@ -76,14 +93,23 @@ app.use('/api/fees', authenticateToken, feeRoutes);
 app.use('/api/school-fees', authenticateToken, schoolFeesRoutes);
 app.use('/api/school-settings', authenticateToken, schoolSettingsRoutes);
 
-// Error handling middleware
+// ========================================
+// ERROR HANDLING MIDDLEWARE
+// ========================================
 app.use((err, req, res, next) => {
     console.error('Error:', err.stack);
-    res.status(500).json({ message: 'Something went wrong!', error: err.message });
+    res.status(500).json({ 
+        message: 'Something went wrong!', 
+        error: process.env.NODE_ENV === 'production' ? undefined : err.message 
+    });
 });
 
-// Start server
+// ========================================
+// START SERVER
+// ========================================
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Health check: http://localhost:${PORT}/api/health`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Cache disabled for all API responses - real-time data always`);
 });
