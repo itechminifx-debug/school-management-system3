@@ -56,18 +56,19 @@ const schoolFeesRoutes = require('./routes/schoolFees.routes');
 const schoolSettingsRoutes = require('./routes/schoolSettings.routes');
 const parentRoutes = require('./routes/parent.routes');
 
-// Import authentication middleware
+// ========================================
+// REGISTER ROUTES - ORDER MATTERS!
+// ========================================
+
+// 1. Public routes (no auth needed)
+app.use('/api/auth', authRoutes);
+
+// 2. Parent routes (handles its own auth)
+app.use('/api/parent', parentRoutes);
+
+// 3. Protected routes (require auth)
 const { authenticateToken } = require('./middleware/auth.middleware');
 
-// ========================================
-// REGISTER ROUTES
-// ========================================
-
-// Public routes (no authentication required)
-app.use('/api/auth', authRoutes);
-app.use('/api/parent', parentRoutes);  // Parent routes handle their own auth
-
-// Protected routes (authentication required)
 app.use('/api/students', authenticateToken, studentRoutes);
 app.use('/api/attendance', authenticateToken, attendanceRoutes);
 app.use('/api/grades', authenticateToken, gradeRoutes);
@@ -79,8 +80,8 @@ app.use('/api/school-settings', authenticateToken, schoolSettingsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ message: 'Something went wrong!' });
+    console.error('Error:', err.stack);
+    res.status(500).json({ message: 'Something went wrong!', error: err.message });
 });
 
 // Start server
