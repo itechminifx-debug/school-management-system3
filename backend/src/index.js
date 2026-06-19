@@ -42,7 +42,9 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'School Management System API is running' });
 });
 
-/// Import routes
+// ========================================
+// IMPORT ROUTES
+// ========================================
 const authRoutes = require('./routes/auth.routes');
 const studentRoutes = require('./routes/student.routes');
 const attendanceRoutes = require('./routes/attendance.routes');
@@ -54,17 +56,26 @@ const schoolFeesRoutes = require('./routes/schoolFees.routes');
 const schoolSettingsRoutes = require('./routes/schoolSettings.routes');
 const parentRoutes = require('./routes/parent.routes');
 
-// Use routes
+// Import authentication middleware
+const { authenticateToken } = require('./middleware/auth.middleware');
+
+// ========================================
+// REGISTER ROUTES
+// ========================================
+
+// Public routes (no authentication required)
 app.use('/api/auth', authRoutes);
-app.use('/api/students', studentRoutes);
-app.use('/api/attendance', attendanceRoutes);
-app.use('/api/grades', gradeRoutes);
-app.use('/api/class-levels', classLevelRoutes);
-app.use('/api/subjects', subjectRoutes);
-app.use('/api/fees', feeRoutes);
-app.use('/api/school-fees', schoolFeesRoutes);
-app.use('/api/school-settings', schoolSettingsRoutes);
-app.use('/api/parent', parentRoutes);
+app.use('/api/parent', parentRoutes);  // Parent routes handle their own auth
+
+// Protected routes (authentication required)
+app.use('/api/students', authenticateToken, studentRoutes);
+app.use('/api/attendance', authenticateToken, attendanceRoutes);
+app.use('/api/grades', authenticateToken, gradeRoutes);
+app.use('/api/class-levels', authenticateToken, classLevelRoutes);
+app.use('/api/subjects', authenticateToken, subjectRoutes);
+app.use('/api/fees', authenticateToken, feeRoutes);
+app.use('/api/school-fees', authenticateToken, schoolFeesRoutes);
+app.use('/api/school-settings', authenticateToken, schoolSettingsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
