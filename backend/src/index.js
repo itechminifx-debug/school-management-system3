@@ -57,16 +57,14 @@ const schoolSettingsRoutes = require('./routes/schoolSettings.routes');
 const parentRoutes = require('./routes/parent.routes');
 
 // ========================================
-// REGISTER ROUTES - ORDER MATTERS!
+// REGISTER ROUTES
 // ========================================
 
-// 1. Public routes (no auth needed)
+// Public routes (no auth)
 app.use('/api/auth', authRoutes);
+app.use('/api/parent', parentRoutes);  // Parent routes handle their own auth
 
-// 2. Parent routes (handles its own auth)
-app.use('/api/parent', parentRoutes);
-
-// 3. Protected routes (require auth)
+// Protected routes (require auth)
 const { authenticateToken } = require('./middleware/auth.middleware');
 
 app.use('/api/students', authenticateToken, studentRoutes);
