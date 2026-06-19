@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useSchool } from '../context/SchoolContext';
 
@@ -11,20 +11,21 @@ function ParentDashboard() {
   const [attendanceSummary, setAttendanceSummary] = useState({});
   const [fees, setFees] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [error, setError] = useState('');
   const [parentInfo, setParentInfo] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const apiUrl = 'https://school-management-api-5mml.onrender.com';
 
+  // Load parent info and fetch children on mount
   useEffect(() => {
     const userData = localStorage.getItem('user');
-    console.log('Parent user data:', userData);
     if (userData) {
       try {
         const parsed = JSON.parse(userData);
         setParentInfo(parsed);
-        console.log('Parsed parent info:', parsed);
       } catch (e) {
         console.error('Error parsing user data:', e);
       }
@@ -32,10 +33,22 @@ function ParentDashboard() {
     fetchChildren();
   }, []);
 
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (selectedChild && !loading) {
+        console.log('Auto-refreshing data...');
+        fetchChildData(selectedChild.id);
+      }
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [selectedChild]);
+
   const fetchChildren = async () => {
     setLoading(true);
+    setError('');
     const token = localStorage.getItem('token');
-    console.log('Fetching children with token:', token ? 'Token exists' : 'No token');
     
     if (!token) {
       setError('No authentication token found. Please login again.');
@@ -45,26 +58,20 @@ function ParentDashboard() {
     
     try {
       const response = await axios.get(`${apiUrl}/api/parent/children`, {
-        headers: { 
-          Authorization: `Bearer ${token}`
-        }
+        headers: { Authorization: `Bearer ${token}` }
       });
-      
-      console.log('Children response:', response.data);
       
       if (response.data.children && response.data.children.length > 0) {
         setChildren(response.data.children);
         setSelectedChild(response.data.children[0]);
-        fetchChildData(response.data.children[0].id);
-        setError('');
+        await fetchChildData(response.data.children[0].id);
+        setLastUpdated(new Date());
       } else {
         setChildren([]);
         setError('No children linked to your account. Please contact the school administrator.');
       }
     } catch (error) {
       console.error('Error fetching children:', error);
-      console.error('Error response:', error.response?.data);
-      
       if (error.response?.status === 403) {
         setError('Access denied. Please login again.');
         localStorage.removeItem('token');
@@ -78,6 +85,7 @@ function ParentDashboard() {
       }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -85,7 +93,7 @@ function ParentDashboard() {
     const token = localStorage.getItem('token');
     const currentYear = new Date().getFullYear();
     
-    console.log('Fetching data for student:', studentId);
+    if (!token) return;
     
     try {
       // Fetch grades
@@ -93,7 +101,6 @@ function ParentDashboard() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setGrades(gradesRes.data.grades || []);
-      console.log('Grades:', gradesRes.data);
 
       // Fetch attendance
       const attendanceRes = await axios.get(`${apiUrl}/api/parent/attendance/${studentId}`, {
@@ -101,23 +108,33 @@ function ParentDashboard() {
       });
       setAttendance(attendanceRes.data.attendance || []);
       setAttendanceSummary(attendanceRes.data.summary || {});
-      console.log('Attendance:', attendanceRes.data);
 
       // Fetch fees
       const feesRes = await axios.get(`${apiUrl}/api/parent/fees/${studentId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setFees(feesRes.data.fees || []);
-      console.log('Fees:', feesRes.data);
+      
+      setLastUpdated(new Date());
     } catch (error) {
       console.error('Error fetching child data:', error);
-      setError('Failed to load child data');
+      // Don't set error here to avoid breaking the UI
     }
   };
 
   const handleChildSelect = (child) => {
     setSelectedChild(child);
     fetchChildData(child.id);
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    if (selectedChild) {
+      await fetchChildData(selectedChild.id);
+    } else {
+      await fetchChildren();
+    }
+    setRefreshing(false);
   };
 
   const getStatusClass = (status) => {
@@ -159,10 +176,7 @@ function ParentDashboard() {
                 <p><strong>Email:</strong> {parentInfo.email}</p>
               </div>
             )}
-            <button 
-              onClick={handleLogout}
-              style={{ marginTop: '1rem', background: '#dc3545' }}
-            >
+            <button onClick={handleLogout} style={{ marginTop: '1rem', background: '#dc3545' }}>
               Logout
             </button>
           </div>
@@ -175,8 +189,34 @@ function ParentDashboard() {
     <div className="parent-dashboard-container">
       <div className="container">
         <div className="card" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', color: 'white' }}>
-          <h2 style={{ color: 'white', borderLeftColor: 'white' }}>👨‍👩‍👧 Welcome, {parentInfo?.full_name || 'Parent'}!</h2>
-          <p style={{ opacity: 0.9 }}>View your child's academic progress and school information</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div>
+              <h2 style={{ color: 'white', borderLeftColor: 'white' }}>👨‍👩‍👧 Welcome, {parentInfo?.full_name || 'Parent'}!</h2>
+              <p style={{ opacity: 0.9 }}>View your child's academic progress and school information</p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <button 
+                onClick={handleRefresh} 
+                disabled={refreshing}
+                style={{ 
+                  background: 'rgba(255,255,255,0.2)', 
+                  padding: '0.3rem 1rem',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  color: 'white'
+                }}
+              >
+                {refreshing ? '🔄 Refreshing...' : '🔄 Refresh'}
+              </button>
+              <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.2)', padding: '0.3rem 1rem', border: '1px solid rgba(255,255,255,0.3)', color: 'white' }}>
+                Logout
+              </button>
+            </div>
+          </div>
+          {lastUpdated && (
+            <p style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '0.5rem' }}>
+              Last updated: {lastUpdated.toLocaleTimeString()}
+            </p>
+          )}
         </div>
 
         {/* Child Selector */}
@@ -201,6 +241,9 @@ function ParentDashboard() {
               </button>
             ))}
           </div>
+          <p style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#666' }}>
+            Total linked children: {children.length}
+          </p>
         </div>
 
         {selectedChild && (
