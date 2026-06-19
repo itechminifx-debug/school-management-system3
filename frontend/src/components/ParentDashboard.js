@@ -19,8 +19,14 @@ function ParentDashboard() {
 
   const apiUrl = 'https://school-management-api-5mml.onrender.com';
 
-  // Load parent info and fetch children on mount
+  // Force clear cache on mount
   useEffect(() => {
+    console.log('Clearing cached data...');
+    localStorage.removeItem('cached_fees');
+    localStorage.removeItem('cached_grades');
+    localStorage.removeItem('cached_attendance');
+    sessionStorage.clear();
+    
     const userData = localStorage.getItem('user');
     if (userData) {
       try {
@@ -33,30 +39,17 @@ function ParentDashboard() {
     fetchChildren();
   }, []);
 
-  // Force refresh when page becomes visible (user switches tab)
+  // Refresh when page becomes visible
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && selectedChild && !loading) {
-        console.log('📌 Tab became visible - forcing refresh...');
+        console.log('📌 Tab became visible - refreshing...');
         fetchChildData(selectedChild.id);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [selectedChild, loading]);
-
-  // Force refresh when window gets focus
-  useEffect(() => {
-    const handleFocus = () => {
-      if (selectedChild && !loading) {
-        console.log('📌 Window focus - forcing refresh...');
-        fetchChildData(selectedChild.id);
-      }
-    };
-
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
   }, [selectedChild, loading]);
 
   // Auto-refresh every 15 seconds
@@ -83,10 +76,13 @@ function ParentDashboard() {
     }
     
     try {
-      // Add timestamp to prevent caching
-      const timestamp = new Date().getTime();
-      const response = await axios.get(`${apiUrl}/api/parent/children?t=${timestamp}`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const cacheBuster = Date.now() + Math.random();
+      const response = await axios.get(`${apiUrl}/api/parent/children?cb=${cacheBuster}`, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
       });
       
       if (response.data.children && response.data.children.length > 0) {
@@ -120,31 +116,52 @@ function ParentDashboard() {
   const fetchChildData = async (studentId) => {
     const token = localStorage.getItem('token');
     const currentYear = new Date().getFullYear();
-    const timestamp = new Date().getTime(); // Cache buster
+    const cacheBuster = Date.now() + Math.random();
     
     if (!token) return;
     
     try {
-      // Fetch grades with cache buster
+      // Fetch grades
       const gradesRes = await axios.get(
-        `${apiUrl}/api/parent/grades/${studentId}/Term%201/${currentYear}?t=${timestamp}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        `${apiUrl}/api/parent/grades/${studentId}/Term%201/${currentYear}?cb=${cacheBuster}`,
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          } 
+        }
       );
       setGrades(gradesRes.data.grades || []);
 
-      // Fetch attendance with cache buster
+      // Fetch attendance
       const attendanceRes = await axios.get(
-        `${apiUrl}/api/parent/attendance/${studentId}?t=${timestamp}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        `${apiUrl}/api/parent/attendance/${studentId}?cb=${cacheBuster}`,
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          } 
+        }
       );
       setAttendance(attendanceRes.data.attendance || []);
       setAttendanceSummary(attendanceRes.data.summary || {});
 
-      // Fetch fees with cache buster - THIS IS THE IMPORTANT ONE
+      // Fetch fees - THIS IS THE IMPORTANT ONE
       const feesRes = await axios.get(
-        `${apiUrl}/api/parent/fees/${studentId}?t=${timestamp}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        `${apiUrl}/api/parent/fees/${studentId}?cb=${cacheBuster}`,
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          } 
+        }
       );
+      
+      console.log('Fees data received:', feesRes.data.fees);
       setFees(feesRes.data.fees || []);
       
       setLastUpdated(new Date());
@@ -167,6 +184,12 @@ function ParentDashboard() {
       await fetchChildren();
     }
     setRefreshing(false);
+  };
+
+  const handleHardRefresh = () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.reload();
   };
 
   const getStatusClass = (status) => {
@@ -229,7 +252,7 @@ function ParentDashboard() {
                 🔄 Auto-refreshes every 15 seconds
               </p>
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <button 
                 onClick={handleRefresh} 
                 disabled={refreshing}
@@ -243,6 +266,20 @@ function ParentDashboard() {
                 }}
               >
                 {refreshing ? '🔄 Refreshing...' : '🔄 Refresh'}
+              </button>
+              <button 
+                onClick={handleHardRefresh}
+                style={{ 
+                  background: '#e74c3c', 
+                  padding: '0.3rem 1rem',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  color: 'white'
+                }}
+                title="Clear all cache and reload"
+              >
+                🔄 Hard Refresh
               </button>
               <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.2)', padding: '0.3rem 1rem', border: '1px solid rgba(255,255,255,0.3)', color: 'white', borderRadius: '8px', cursor: 'pointer' }}>
                 Logout
