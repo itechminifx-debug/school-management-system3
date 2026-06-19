@@ -8,6 +8,7 @@ function SchoolFees() {
   const [academicYear, setAcademicYear] = useState('2026');
   const [feeData, setFeeData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -22,8 +23,7 @@ function SchoolFees() {
   const [classFeeAmount, setClassFeeAmount] = useState('');
   const [currentFeeSetting, setCurrentFeeSetting] = useState(null);
   const [showSettingsMessage, setShowSettingsMessage] = useState('');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [paymentToDelete, setPaymentToDelete] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const apiUrl = 'https://school-management-api-5mml.onrender.com';
 
@@ -38,6 +38,18 @@ function SchoolFees() {
     }
   }, [selectedClass, selectedTerm, academicYear]);
 
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (selectedClass && !loading) {
+        console.log('Auto-refreshing fee data...');
+        fetchFeeSummary();
+      }
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [selectedClass, selectedTerm, academicYear]);
+
   const fetchClassLevels = async () => {
     const token = localStorage.getItem('token');
     try {
@@ -50,24 +62,27 @@ function SchoolFees() {
       }
     } catch (error) {
       console.error('Error fetching class levels:', error);
-      setError('Failed to load class levels');
     }
   };
 
   const fetchFeeSummary = async () => {
     setLoading(true);
     const token = localStorage.getItem('token');
+    const timestamp = new Date().getTime();
     try {
-      const response = await axios.get(`${apiUrl}/api/school-fees/summary/${selectedClass}/${selectedTerm}/${academicYear}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.get(
+        `${apiUrl}/api/school-fees/summary/${selectedClass}/${selectedTerm}/${academicYear}?t=${timestamp}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       setFeeData(response.data);
+      setLastUpdated(new Date());
       setError('');
     } catch (error) {
       console.error('Error fetching fee summary:', error);
       setError('Failed to load fee data');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -115,6 +130,13 @@ function SchoolFees() {
       console.error('Error fetching receipt:', error);
       setError('Failed to load receipt');
     }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchFeeSummary();
+    await fetchFeeSetting();
+    setRefreshing(false);
   };
 
   const handleUpdateFeeSetting = async () => {
@@ -169,7 +191,7 @@ function SchoolFees() {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      setMessage(`✅ Payment of ₵${paymentAmount} recorded successfully for ${selectedStudent.full_name}!`);
+      setMessage(`✅ Payment of ₵${paymentAmount} recorded successfully!`);
       setPaymentAmount('');
       setShowPaymentModal(false);
       setSelectedStudent(null);
@@ -207,7 +229,7 @@ function SchoolFees() {
       
       setMessage(`↶ Payment of ₵${amount} for ${studentName} has been undone!`);
       fetchFeeSummary();
-      if (showHistory && selectedStudent) {
+      if (showHistory) {
         fetchStudentHistory(selectedStudent);
       }
       setTimeout(() => setMessage(''), 3000);
@@ -253,9 +275,9 @@ function SchoolFees() {
     
     const printWindow = window.open('', '_blank');
     const className = classLevels.find(c => c.id === parseInt(selectedClass))?.name || 'Class';
-    const paidStudents = feeData.students.filter(s => s.status === 'paid');
-    const partialStudents = feeData.students.filter(s => s.status === 'partial');
-    const unpaidStudents = feeData.students.filter(s => s.status === 'unpaid');
+    const paidStudents = feeData.students?.filter(s => s.status === 'paid') || [];
+    const partialStudents = feeData.students?.filter(s => s.status === 'partial') || [];
+    const unpaidStudents = feeData.students?.filter(s => s.status === 'unpaid') || [];
     
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -286,7 +308,7 @@ function SchoolFees() {
             <div class="report-title">SCHOOL FEES COLLECTION REPORT</div>
             <div>${className} - ${selectedTerm}, ${academicYear} Academic Year</div>
             <div>Fee Amount per Student: ₵${feeData.default_expected}</div>
-            <div>Printed: ${new Date().toLocaleString()}</div>
+            <div>Generated: ${new Date().toLocaleString()}</div>
           </div>
           
           <div class="summary">
@@ -375,8 +397,8 @@ function SchoolFees() {
 
   const getStatusBadge = (status) => {
     if (status === 'paid') return <span style={{ background: '#2ecc71', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>✓ FULLY PAID</span>;
-    if (status === 'partial') return <span style={{ background: '#f39c12', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>⚠ PARTIAL</span>;
-    return <span style={{ background: '#e74c3c', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>✗ NOT PAID</span>;
+    if (status === 'partial') return <span style={{ background: '#f59e0b', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>⚠ PARTIAL</span>;
+    return <span style={{ background: '#ef4444', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>✗ NOT PAID</span>;
   };
 
   return (
@@ -386,29 +408,76 @@ function SchoolFees() {
         {message && <div className="success">{message}</div>}
         {error && <div className="error">{error}</div>}
 
-        {/* Filters */}
+        {/* Filters with Refresh */}
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
           <div style={{ flex: 1 }}>
             <label style={{ fontWeight: '600', display: 'block', marginBottom: '0.3rem' }}>Select Class:</label>
-            <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px' }}>
-              {classLevels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            <select 
+              value={selectedClass} 
+              onChange={(e) => setSelectedClass(e.target.value)} 
+              style={{ width: '100%', padding: '0.5rem', borderRadius: '8px' }}
+            >
+              {classLevels.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
             </select>
           </div>
           <div style={{ flex: 1 }}>
             <label style={{ fontWeight: '600', display: 'block', marginBottom: '0.3rem' }}>Select Term:</label>
-            <select value={selectedTerm} onChange={(e) => setSelectedTerm(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px' }}>
-              <option value="Term 1">Term 1</option><option value="Term 2">Term 2</option><option value="Term 3">Term 3</option>
+            <select 
+              value={selectedTerm} 
+              onChange={(e) => setSelectedTerm(e.target.value)} 
+              style={{ width: '100%', padding: '0.5rem', borderRadius: '8px' }}
+            >
+              <option value="Term 1">Term 1</option>
+              <option value="Term 2">Term 2</option>
+              <option value="Term 3">Term 3</option>
             </select>
           </div>
           <div style={{ flex: 1 }}>
             <label style={{ fontWeight: '600', display: 'block', marginBottom: '0.3rem' }}>Academic Year:</label>
-            <input type="text" value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px' }} />
+            <input 
+              type="text" 
+              value={academicYear} 
+              onChange={(e) => setAcademicYear(e.target.value)} 
+              style={{ width: '100%', padding: '0.5rem', borderRadius: '8px' }}
+            />
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '5px' }}>
-            <button onClick={handlePrintClassReport} style={{ background: '#2ecc71', padding: '8px 16px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>🖨️ Print Report</button>
-            <button onClick={() => setShowSettingsModal(true)} style={{ background: '#f39c12', padding: '8px 16px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>⚙️ Set Fee</button>
+            <button 
+              onClick={handleRefresh} 
+              disabled={refreshing}
+              style={{ 
+                background: '#6366f1', 
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                color: 'white'
+              }}
+            >
+              {refreshing ? '🔄 Refreshing...' : '🔄 Refresh'}
+            </button>
+            <button 
+              onClick={handlePrintClassReport} 
+              style={{ background: '#2ecc71', padding: '0.5rem 1rem', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white' }}
+            >
+              🖨️ Print Report
+            </button>
+            <button 
+              onClick={() => setShowSettingsModal(true)} 
+              style={{ background: '#f59e0b', padding: '0.5rem 1rem', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white' }}
+            >
+              ⚙️ Set Fee
+            </button>
           </div>
         </div>
+
+        {lastUpdated && (
+          <p style={{ fontSize: '0.7rem', color: '#888', marginBottom: '1rem' }}>
+            Last updated: {lastUpdated.toLocaleTimeString()}
+          </p>
+        )}
 
         {/* Current Fee Display */}
         {currentFeeSetting && (
@@ -437,12 +506,12 @@ function SchoolFees() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#1e3c72', color: 'white' }}>
-                  <th style={{ padding: '10px', textAlign: 'left' }}>Admission No</th>
-                  <th style={{ padding: '10px', textAlign: 'left' }}>Student Name</th>
-                  <th style={{ padding: '10px', textAlign: 'left' }}>Expected</th>
-                  <th style={{ padding: '10px', textAlign: 'left' }}>Paid</th>
-                  <th style={{ padding: '10px', textAlign: 'left' }}>Arrears</th>
-                  <th style={{ padding: '10px', textAlign: 'left' }}>Status</th>
+                  <th style={{ padding: '10px' }}>Admission No</th>
+                  <th style={{ padding: '10px' }}>Student Name</th>
+                  <th style={{ padding: '10px' }}>Expected</th>
+                  <th style={{ padding: '10px' }}>Paid</th>
+                  <th style={{ padding: '10px' }}>Arrears</th>
+                  <th style={{ padding: '10px' }}>Status</th>
                   <th style={{ padding: '10px', textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
@@ -452,18 +521,38 @@ function SchoolFees() {
                     <td style={{ padding: '8px' }}>{student.admission_number}</td>
                     <td style={{ padding: '8px' }}><strong>{student.full_name}</strong></td>
                     <td style={{ padding: '8px' }}>₵{student.expected_amount}</td>
-                    <td style={{ padding: '8px', color: '#2ecc71', fontWeight: 'bold' }}>₵{student.amount_paid}</td>
+                    <td style={{ padding: '8px', color: '#2ecc71' }}>₵{student.amount_paid}</td>
                     <td style={{ padding: '8px', color: '#e74c3c', fontWeight: 'bold' }}>₵{student.arrears}</td>
                     <td style={{ padding: '8px' }}>{getStatusBadge(student.status)}</td>
                     <td style={{ padding: '8px', textAlign: 'center' }}>
                       {student.status !== 'paid' ? (
-                        <button onClick={() => { setSelectedStudent(student); setPaymentAmount(''); setShowPaymentModal(true); }} style={{ background: '#3498db', padding: '4px 12px', marginRight: '5px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>💰 Pay</button>
+                        <button 
+                          onClick={() => { setSelectedStudent(student); setPaymentAmount(''); setShowPaymentModal(true); }} 
+                          style={{ background: '#3498db', padding: '4px 12px', marginRight: '5px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}
+                        >
+                          💰 Pay
+                        </button>
                       ) : (
-                        <button onClick={() => handleUndoPayment(student.payment_id, student.full_name, student.amount_paid)} style={{ background: '#e74c3c', padding: '4px 12px', marginRight: '5px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>↶ Undo</button>
+                        <button 
+                          onClick={() => handleUndoPayment(student.payment_id, student.full_name, student.amount_paid)} 
+                          style={{ background: '#e74c3c', padding: '4px 12px', marginRight: '5px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}
+                        >
+                          ↶ Undo
+                        </button>
                       )}
-                      <button onClick={() => fetchStudentHistory(student)} style={{ background: '#95a5a6', padding: '4px 12px', marginRight: '5px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>📜 History</button>
+                      <button 
+                        onClick={() => fetchStudentHistory(student)} 
+                        style={{ background: '#95a5a6', padding: '4px 12px', marginRight: '5px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}
+                      >
+                        📜 History
+                      </button>
                       {student.receipt_number && (
-                        <button onClick={() => fetchReceipt(student.receipt_number)} style={{ background: '#2ecc71', padding: '4px 8px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>🧾 Receipt</button>
+                        <button 
+                          onClick={() => fetchReceipt(student.receipt_number)} 
+                          style={{ background: '#2ecc71', padding: '4px 8px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}
+                        >
+                          🧾 Receipt
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -482,8 +571,8 @@ function SchoolFees() {
               {showSettingsMessage && <div className={showSettingsMessage.includes('✅') ? 'success' : 'error'} style={{ marginBottom: '1rem' }}>{showSettingsMessage}</div>}
               <div><label>Fee Amount (₵):</label><input type="number" value={classFeeAmount} onChange={(e) => setClassFeeAmount(e.target.value)} placeholder="Enter fee amount" style={{ width: '100%', padding: '0.5rem', margin: '0.5rem 0' }} /></div>
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-                <button onClick={() => { setShowSettingsModal(false); setShowSettingsMessage(''); }} style={{ background: '#95a5a6', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={handleUpdateFeeSetting} style={{ background: '#2ecc71', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Save</button>
+                <button onClick={() => { setShowSettingsModal(false); setShowSettingsMessage(''); }} style={{ background: '#95a5a6', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>Cancel</button>
+                <button onClick={handleUpdateFeeSetting} style={{ background: '#2ecc71', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>Save</button>
               </div>
             </div>
           </div>
@@ -500,8 +589,8 @@ function SchoolFees() {
               <div><label>Amount to Pay (₵):</label><input type="number" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} placeholder="Enter amount" style={{ width: '100%', padding: '0.5rem', margin: '0.5rem 0' }} /></div>
               <div><label>Payment Method:</label><select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} style={{ width: '100%', padding: '0.5rem', margin: '0.5rem 0' }}><option value="cash">Cash</option><option value="mobile_money">Mobile Money</option><option value="bank_transfer">Bank Transfer</option><option value="card">Card</option></select></div>
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-                <button onClick={() => { setShowPaymentModal(false); setSelectedStudent(null); }} style={{ background: '#95a5a6', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={handleRecordPayment} style={{ background: '#2ecc71', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Record Payment</button>
+                <button onClick={() => { setShowPaymentModal(false); setSelectedStudent(null); }} style={{ background: '#95a5a6', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>Cancel</button>
+                <button onClick={handleRecordPayment} style={{ background: '#2ecc71', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>Record Payment</button>
               </div>
             </div>
           </div>
@@ -538,10 +627,10 @@ function SchoolFees() {
                           <td style={{ padding: '8px', color: '#2ecc71', fontWeight: 'bold' }}>₵{p.amount_paid}</td>
                           <td style={{ padding: '8px' }}>{new Date(p.payment_date).toLocaleDateString()}</td>
                           <td style={{ padding: '8px' }}>
-                            <button onClick={() => fetchReceipt(p.receipt_number)} style={{ background: '#2ecc71', padding: '4px 8px', fontSize: '10px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>🧾 View</button>
+                            <button onClick={() => fetchReceipt(p.receipt_number)} style={{ background: '#2ecc71', padding: '4px 8px', fontSize: '10px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>🧾 View</button>
                           </td>
                           <td style={{ padding: '8px', textAlign: 'center' }}>
-                            <button onClick={() => handleDeletePaymentFromHistory(p.id, p.amount_paid, studentHistory.student?.full_name, p.term, p.academic_year)} style={{ background: '#e74c3c', padding: '4px 8px', fontSize: '10px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>🗑️ Delete</button>
+                            <button onClick={() => handleDeletePaymentFromHistory(p.id, p.amount_paid, studentHistory.student?.full_name, p.term, p.academic_year)} style={{ background: '#e74c3c', padding: '4px 8px', fontSize: '10px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>🗑️ Delete</button>
                           </td>
                         </tr>
                       ))}
@@ -551,7 +640,7 @@ function SchoolFees() {
               )}
               
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-                <button onClick={() => { setShowHistory(false); setStudentHistory(null); }} style={{ background: '#95a5a6', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Close</button>
+                <button onClick={() => { setShowHistory(false); setStudentHistory(null); }} style={{ background: '#95a5a6', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>Close</button>
               </div>
             </div>
           </div>
@@ -576,8 +665,8 @@ function SchoolFees() {
                 <p><strong>Payment Method:</strong> {receiptData.payment_method?.toUpperCase()}</p>
               </div>
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1rem' }}>
-                <button onClick={handlePrintReceipt} style={{ background: '#2ecc71', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>🖨️ Print Receipt</button>
-                <button onClick={() => { setShowReceipt(false); setReceiptData(null); }} style={{ background: '#95a5a6', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Close</button>
+                <button onClick={handlePrintReceipt} style={{ background: '#2ecc71', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>🖨️ Print Receipt</button>
+                <button onClick={() => { setShowReceipt(false); setReceiptData(null); }} style={{ background: '#95a5a6', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>Close</button>
               </div>
             </div>
           </div>
