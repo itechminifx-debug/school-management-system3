@@ -16,17 +16,12 @@ function ParentDashboard() {
   const [error, setError] = useState('');
   const [parentInfo, setParentInfo] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [forceRefresh, setForceRefresh] = useState(0);
 
   const apiUrl = 'https://school-management-api-5mml.onrender.com';
 
-  // Force clear cache on mount
+  // Load parent info and fetch children on mount
   useEffect(() => {
-    console.log('Clearing cached data...');
-    localStorage.removeItem('cached_fees');
-    localStorage.removeItem('cached_grades');
-    localStorage.removeItem('cached_attendance');
-    sessionStorage.clear();
-    
     const userData = localStorage.getItem('user');
     if (userData) {
       try {
@@ -39,11 +34,18 @@ function ParentDashboard() {
     fetchChildren();
   }, []);
 
-  // Refresh when page becomes visible
+  // Force refresh when forceRefresh changes
+  useEffect(() => {
+    if (selectedChild && forceRefresh > 0) {
+      fetchChildData(selectedChild.id);
+    }
+  }, [forceRefresh]);
+
+  // Force refresh when page becomes visible (user switches tab)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && selectedChild && !loading) {
-        console.log('📌 Tab became visible - refreshing...');
+        console.log('📌 Tab became visible - forcing refresh...');
         fetchChildData(selectedChild.id);
       }
     };
@@ -52,14 +54,27 @@ function ParentDashboard() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [selectedChild, loading]);
 
-  // Auto-refresh every 15 seconds
+  // Force refresh when window gets focus
+  useEffect(() => {
+    const handleFocus = () => {
+      if (selectedChild && !loading) {
+        console.log('📌 Window focus - forcing refresh...');
+        fetchChildData(selectedChild.id);
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [selectedChild, loading]);
+
+  // Auto-refresh every 10 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       if (selectedChild && !loading) {
         console.log('📌 Auto-refresh...');
         fetchChildData(selectedChild.id);
       }
-    }, 15000);
+    }, 10000);
     
     return () => clearInterval(interval);
   }, [selectedChild, loading]);
@@ -76,14 +91,19 @@ function ParentDashboard() {
     }
     
     try {
-      const cacheBuster = Date.now() + Math.random();
-      const response = await axios.get(`${apiUrl}/api/parent/children?cb=${cacheBuster}`, {
+      // Add random timestamp to prevent caching
+      const timestamp = new Date().getTime();
+      const random = Math.random();
+      const response = await axios.get(`${apiUrl}/api/parent/children?t=${timestamp}&r=${random}`, {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }
       });
+      
+      console.log('Children response:', response.data);
       
       if (response.data.children && response.data.children.length > 0) {
         setChildren(response.data.children);
@@ -116,41 +136,17 @@ function ParentDashboard() {
   const fetchChildData = async (studentId) => {
     const token = localStorage.getItem('token');
     const currentYear = new Date().getFullYear();
-    const cacheBuster = Date.now() + Math.random();
+    const timestamp = new Date().getTime();
+    const random = Math.random();
     
     if (!token) return;
     
+    console.log('📌 Fetching fresh data for student:', studentId);
+    
     try {
-      // Fetch grades
+      // Fetch grades with cache prevention
       const gradesRes = await axios.get(
-        `${apiUrl}/api/parent/grades/${studentId}/Term%201/${currentYear}?cb=${cacheBuster}`,
-        { 
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache'
-          } 
-        }
-      );
-      setGrades(gradesRes.data.grades || []);
-
-      // Fetch attendance
-      const attendanceRes = await axios.get(
-        `${apiUrl}/api/parent/attendance/${studentId}?cb=${cacheBuster}`,
-        { 
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache'
-          } 
-        }
-      );
-      setAttendance(attendanceRes.data.attendance || []);
-      setAttendanceSummary(attendanceRes.data.summary || {});
-
-      // Fetch fees - THIS IS THE IMPORTANT ONE
-      const feesRes = await axios.get(
-        `${apiUrl}/api/parent/fees/${studentId}?cb=${cacheBuster}`,
+        `${apiUrl}/api/parent/grades/${studentId}/Term%201/${currentYear}?t=${timestamp}&r=${random}`,
         { 
           headers: { 
             Authorization: `Bearer ${token}`,
@@ -160,9 +156,40 @@ function ParentDashboard() {
           } 
         }
       );
-      
-      console.log('Fees data received:', feesRes.data.fees);
+      setGrades(gradesRes.data.grades || []);
+      console.log('✅ Grades fetched:', gradesRes.data.grades?.length || 0);
+
+      // Fetch attendance with cache prevention
+      const attendanceRes = await axios.get(
+        `${apiUrl}/api/parent/attendance/${studentId}?t=${timestamp}&r=${random}`,
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          } 
+        }
+      );
+      setAttendance(attendanceRes.data.attendance || []);
+      setAttendanceSummary(attendanceRes.data.summary || {});
+      console.log('✅ Attendance fetched:', attendanceRes.data.attendance?.length || 0);
+
+      // Fetch fees with cache prevention - THIS IS THE MOST IMPORTANT
+      const feesRes = await axios.get(
+        `${apiUrl}/api/parent/fees/${studentId}?t=${timestamp}&r=${random}`,
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          } 
+        }
+      );
       setFees(feesRes.data.fees || []);
+      console.log('✅ Fees fetched:', feesRes.data.fees?.length || 0);
+      console.log('✅ Fees data:', feesRes.data.fees);
       
       setLastUpdated(new Date());
       console.log('✅ Data refreshed at:', new Date().toLocaleTimeString());
@@ -178,18 +205,13 @@ function ParentDashboard() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    console.log('📌 Manual refresh triggered...');
     if (selectedChild) {
       await fetchChildData(selectedChild.id);
     } else {
       await fetchChildren();
     }
     setRefreshing(false);
-  };
-
-  const handleHardRefresh = () => {
-    localStorage.clear();
-    sessionStorage.clear();
-    window.location.reload();
   };
 
   const getStatusClass = (status) => {
@@ -249,10 +271,10 @@ function ParentDashboard() {
               <h2 style={{ color: 'white', borderLeftColor: 'white' }}>👨‍👩‍👧 Welcome, {parentInfo?.full_name || 'Parent'}!</h2>
               <p style={{ opacity: 0.9 }}>View your child's academic progress and school information</p>
               <p style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '0.3rem' }}>
-                🔄 Auto-refreshes every 15 seconds
+                🔄 Auto-refreshes every 10 seconds
               </p>
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               <button 
                 onClick={handleRefresh} 
                 disabled={refreshing}
@@ -266,20 +288,6 @@ function ParentDashboard() {
                 }}
               >
                 {refreshing ? '🔄 Refreshing...' : '🔄 Refresh'}
-              </button>
-              <button 
-                onClick={handleHardRefresh}
-                style={{ 
-                  background: '#e74c3c', 
-                  padding: '0.3rem 1rem',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  color: 'white'
-                }}
-                title="Clear all cache and reload"
-              >
-                🔄 Hard Refresh
               </button>
               <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.2)', padding: '0.3rem 1rem', border: '1px solid rgba(255,255,255,0.3)', color: 'white', borderRadius: '8px', cursor: 'pointer' }}>
                 Logout
