@@ -275,7 +275,7 @@ router.delete('/:parentId', authenticateToken, authorizeRole(['admin']), async (
 });
 
 // ========================================
-// PARENT LOGIN
+// PARENT LOGIN - No auth required
 // ========================================
 router.post('/login', async (req, res) => {
     const pool = getDb(req);
@@ -294,22 +294,13 @@ router.post('/login', async (req, res) => {
         );
         
         if (result.rows.length === 0) {
-            console.log('Parent not found:', email);
             return res.status(401).json({ message: 'Invalid credentials' });
         }
         
         const parent = result.rows[0];
-        console.log('Parent found:', parent.id, parent.full_name);
-        
         const isValid = await bcrypt.compare(password, parent.password_hash);
         if (!isValid) {
-            console.log('Invalid password for parent:', email);
             return res.status(401).json({ message: 'Invalid credentials' });
-        }
-        
-        if (parent.role !== 'parent') {
-            console.log('User is not a parent:', parent.role);
-            return res.status(403).json({ message: 'Access denied. This account is not a parent account.' });
         }
         
         const token = jwt.sign(
@@ -324,7 +315,7 @@ router.post('/login', async (req, res) => {
             { expiresIn: '7d' }
         );
         
-        console.log('Parent login successful:', parent.id, parent.email);
+        console.log('Parent login successful:', parent.id);
         
         res.json({
             message: 'Login successful',
@@ -344,7 +335,7 @@ router.post('/login', async (req, res) => {
 });
 
 // ========================================
-// GET PARENT'S CHILDREN
+// GET PARENT'S CHILDREN - Simple version
 // ========================================
 router.get('/children', authenticateToken, async (req, res) => {
     const pool = getDb(req);
@@ -352,24 +343,16 @@ router.get('/children', authenticateToken, async (req, res) => {
     
     console.log('=== GET /children ===');
     console.log('Parent ID from token:', parentId);
-    console.log('Full user:', req.user);
     
     if (!parentId) {
-        console.log('No parentId in token');
-        return res.status(400).json({ message: 'Parent ID not found in token. Please login again.' });
+        return res.status(400).json({ message: 'Parent ID not found in token.' });
     }
     
     try {
-        const parentCheck = await pool.query('SELECT id, full_name FROM parents WHERE id = $1', [parentId]);
-        if (parentCheck.rows.length === 0) {
-            console.log('Parent not found in database:', parentId);
-            return res.status(404).json({ message: 'Parent not found' });
-        }
-        console.log('Parent found:', parentCheck.rows[0]);
-        
+        // Direct query - simple and clean
         const result = await pool.query(
-            `SELECT s.id, s.full_name, s.admission_number, s.class_level_id, c.name as class_name,
-                    ps.relationship
+            `SELECT s.id, s.full_name, s.admission_number, s.class_level_id, 
+                    c.name as class_name, ps.relationship
              FROM parent_students ps
              JOIN students s ON ps.student_id = s.id
              JOIN class_levels c ON s.class_level_id = c.id
@@ -378,8 +361,7 @@ router.get('/children', authenticateToken, async (req, res) => {
             [parentId]
         );
         
-        console.log('Found children count:', result.rows.length);
-        console.log('Children data:', JSON.stringify(result.rows, null, 2));
+        console.log('Found children:', result.rows.length);
         
         res.json({ children: result.rows });
     } catch (error) {
@@ -387,7 +369,6 @@ router.get('/children', authenticateToken, async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch children', error: error.message });
     }
 });
-
 // ========================================
 // GET CHILD'S GRADES
 // ========================================
@@ -403,6 +384,7 @@ router.get('/grades/:studentId/:term/:academicYear', authenticateToken, async (r
     }
     
     try {
+        // Verify parent has access to this student
         const accessCheck = await pool.query(
             'SELECT * FROM parent_students WHERE parent_id = $1 AND student_id = $2',
             [parentId, studentId]
@@ -412,6 +394,7 @@ router.get('/grades/:studentId/:term/:academicYear', authenticateToken, async (r
             return res.status(403).json({ message: 'Access denied' });
         }
         
+        // Get student info
         const studentResult = await pool.query(
             `SELECT s.id, s.full_name, s.admission_number, c.name as class_name
              FROM students s
@@ -420,6 +403,7 @@ router.get('/grades/:studentId/:term/:academicYear', authenticateToken, async (r
             [studentId]
         );
         
+        // Get grades - return empty array if no grades
         const gradesResult = await pool.query(
             `SELECT subject, score, grade_letter, term, academic_year
              FROM grades
@@ -436,7 +420,6 @@ router.get('/grades/:studentId/:term/:academicYear', authenticateToken, async (r
         res.status(500).json({ message: 'Failed to fetch grades', error: error.message });
     }
 });
-
 // ========================================
 // GET CHILD'S ATTENDANCE
 // ========================================
