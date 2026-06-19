@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useSchool } from '../context/SchoolContext';
 
@@ -16,7 +16,6 @@ function ParentDashboard() {
   const [error, setError] = useState('');
   const [parentInfo, setParentInfo] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [forceRefresh, setForceRefresh] = useState(0);
 
   const apiUrl = 'https://school-management-api-5mml.onrender.com';
 
@@ -27,19 +26,13 @@ function ParentDashboard() {
       try {
         const parsed = JSON.parse(userData);
         setParentInfo(parsed);
+        console.log('📌 Parent Info:', parsed);
       } catch (e) {
         console.error('Error parsing user data:', e);
       }
     }
     fetchChildren();
   }, []);
-
-  // Force refresh when forceRefresh changes
-  useEffect(() => {
-    if (selectedChild && forceRefresh > 0) {
-      fetchChildData(selectedChild.id);
-    }
-  }, [forceRefresh]);
 
   // Force refresh when page becomes visible (user switches tab)
   useEffect(() => {
@@ -67,14 +60,14 @@ function ParentDashboard() {
     return () => window.removeEventListener('focus', handleFocus);
   }, [selectedChild, loading]);
 
-  // Auto-refresh every 10 seconds
+  // Auto-refresh every 15 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       if (selectedChild && !loading) {
         console.log('📌 Auto-refresh...');
         fetchChildData(selectedChild.id);
       }
-    }, 10000);
+    }, 15000);
     
     return () => clearInterval(interval);
   }, [selectedChild, loading]);
@@ -91,10 +84,8 @@ function ParentDashboard() {
     }
     
     try {
-      // Add random timestamp to prevent caching
       const timestamp = new Date().getTime();
-      const random = Math.random();
-      const response = await axios.get(`${apiUrl}/api/parent/children?t=${timestamp}&r=${random}`, {
+      const response = await axios.get(`${apiUrl}/api/parent/children?t=${timestamp}`, {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -103,7 +94,7 @@ function ParentDashboard() {
         }
       });
       
-      console.log('Children response:', response.data);
+      console.log('📌 Children Response:', response.data);
       
       if (response.data.children && response.data.children.length > 0) {
         setChildren(response.data.children);
@@ -137,47 +128,43 @@ function ParentDashboard() {
     const token = localStorage.getItem('token');
     const currentYear = new Date().getFullYear();
     const timestamp = new Date().getTime();
-    const random = Math.random();
     
     if (!token) return;
     
-    console.log('📌 Fetching fresh data for student:', studentId);
+    console.log('📌 Fetching data for student:', studentId);
     
     try {
-      // Fetch grades with cache prevention
+      // Fetch grades
       const gradesRes = await axios.get(
-        `${apiUrl}/api/parent/grades/${studentId}/Term%201/${currentYear}?t=${timestamp}&r=${random}`,
+        `${apiUrl}/api/parent/grades/${studentId}/Term%201/${currentYear}?t=${timestamp}`,
         { 
           headers: { 
             Authorization: `Bearer ${token}`,
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
           } 
         }
       );
       setGrades(gradesRes.data.grades || []);
-      console.log('✅ Grades fetched:', gradesRes.data.grades?.length || 0);
+      console.log('✅ Grades:', gradesRes.data.grades?.length || 0);
 
-      // Fetch attendance with cache prevention
+      // Fetch attendance
       const attendanceRes = await axios.get(
-        `${apiUrl}/api/parent/attendance/${studentId}?t=${timestamp}&r=${random}`,
+        `${apiUrl}/api/parent/attendance/${studentId}?t=${timestamp}`,
         { 
           headers: { 
             Authorization: `Bearer ${token}`,
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
           } 
         }
       );
       setAttendance(attendanceRes.data.attendance || []);
       setAttendanceSummary(attendanceRes.data.summary || {});
-      console.log('✅ Attendance fetched:', attendanceRes.data.attendance?.length || 0);
+      console.log('✅ Attendance:', attendanceRes.data.attendance?.length || 0);
 
-      // Fetch fees with cache prevention - THIS IS THE MOST IMPORTANT
+      // Fetch fees - THIS IS THE IMPORTANT ONE
+      console.log('📌 Fetching fees for student:', studentId);
       const feesRes = await axios.get(
-        `${apiUrl}/api/parent/fees/${studentId}?t=${timestamp}&r=${random}`,
+        `${apiUrl}/api/parent/fees/${studentId}?t=${timestamp}`,
         { 
           headers: { 
             Authorization: `Bearer ${token}`,
@@ -187,14 +174,18 @@ function ParentDashboard() {
           } 
         }
       );
+      console.log('📌 Fees API Response:', feesRes.data);
+      console.log('📌 Fees array:', feesRes.data.fees);
       setFees(feesRes.data.fees || []);
-      console.log('✅ Fees fetched:', feesRes.data.fees?.length || 0);
-      console.log('✅ Fees data:', feesRes.data.fees);
+      console.log('✅ Fees set to state. Count:', feesRes.data.fees?.length || 0);
       
       setLastUpdated(new Date());
       console.log('✅ Data refreshed at:', new Date().toLocaleTimeString());
     } catch (error) {
       console.error('Error fetching child data:', error);
+      if (error.response) {
+        console.error('Error response:', error.response.data);
+      }
     }
   };
 
@@ -253,7 +244,7 @@ function ParentDashboard() {
                 <p><strong>Email:</strong> {parentInfo.email}</p>
               </div>
             )}
-            <button onClick={handleLogout} style={{ marginTop: '1rem', background: '#dc3545' }}>
+            <button onClick={handleLogout} style={{ marginTop: '1rem', background: '#dc3545', padding: '0.5rem 1rem', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>
               Logout
             </button>
           </div>
@@ -271,7 +262,7 @@ function ParentDashboard() {
               <h2 style={{ color: 'white', borderLeftColor: 'white' }}>👨‍👩‍👧 Welcome, {parentInfo?.full_name || 'Parent'}!</h2>
               <p style={{ opacity: 0.9 }}>View your child's academic progress and school information</p>
               <p style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '0.3rem' }}>
-                🔄 Auto-refreshes every 10 seconds
+                🔄 Auto-refreshes every 15 seconds
               </p>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -346,7 +337,13 @@ function ParentDashboard() {
               {['overview', 'grades', 'attendance', 'fees'].map(tab => (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    if (tab === 'fees' && selectedChild) {
+                      console.log('📌 Fees tab clicked - forcing refresh...');
+                      fetchChildData(selectedChild.id);
+                    }
+                  }}
                   style={{
                     background: activeTab === tab ? '#6366f1' : 'white',
                     color: activeTab === tab ? 'white' : '#1e293b',
@@ -486,6 +483,8 @@ function ParentDashboard() {
             {activeTab === 'fees' && (
               <div className="card">
                 <h3>💰 School Fees</h3>
+                {console.log('📌 Rendering fees tab. Fees array:', fees)}
+                {console.log('📌 Fees length:', fees.length)}
                 {fees.length === 0 ? (
                   <p>No fee records found.</p>
                 ) : (
