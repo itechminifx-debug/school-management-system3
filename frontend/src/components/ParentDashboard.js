@@ -33,30 +33,43 @@ function ParentDashboard() {
     fetchChildren();
   }, []);
 
-  // Auto-refresh every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (selectedChild && !loading) {
-        console.log('Auto-refreshing data...');
-        fetchChildData(selectedChild.id);
-      }
-    }, 30000);
-    
-    return () => clearInterval(interval);
-  }, [selectedChild]);
-
-  // Refresh data when the page becomes visible again
+  // Force refresh when page becomes visible (user switches tab)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && selectedChild) {
-        console.log('Page became visible - refreshing data...');
+      if (document.visibilityState === 'visible' && selectedChild && !loading) {
+        console.log('📌 Tab became visible - forcing refresh...');
         fetchChildData(selectedChild.id);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [selectedChild]);
+  }, [selectedChild, loading]);
+
+  // Force refresh when window gets focus
+  useEffect(() => {
+    const handleFocus = () => {
+      if (selectedChild && !loading) {
+        console.log('📌 Window focus - forcing refresh...');
+        fetchChildData(selectedChild.id);
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [selectedChild, loading]);
+
+  // Auto-refresh every 15 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (selectedChild && !loading) {
+        console.log('📌 Auto-refresh...');
+        fetchChildData(selectedChild.id);
+      }
+    }, 15000);
+    
+    return () => clearInterval(interval);
+  }, [selectedChild, loading]);
 
   const fetchChildren = async () => {
     setLoading(true);
@@ -70,6 +83,7 @@ function ParentDashboard() {
     }
     
     try {
+      // Add timestamp to prevent caching
       const timestamp = new Date().getTime();
       const response = await axios.get(`${apiUrl}/api/parent/children?t=${timestamp}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -126,7 +140,7 @@ function ParentDashboard() {
       setAttendance(attendanceRes.data.attendance || []);
       setAttendanceSummary(attendanceRes.data.summary || {});
 
-      // Fetch fees with cache buster
+      // Fetch fees with cache buster - THIS IS THE IMPORTANT ONE
       const feesRes = await axios.get(
         `${apiUrl}/api/parent/fees/${studentId}?t=${timestamp}`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -134,6 +148,7 @@ function ParentDashboard() {
       setFees(feesRes.data.fees || []);
       
       setLastUpdated(new Date());
+      console.log('✅ Data refreshed at:', new Date().toLocaleTimeString());
     } catch (error) {
       console.error('Error fetching child data:', error);
     }
@@ -210,6 +225,9 @@ function ParentDashboard() {
             <div>
               <h2 style={{ color: 'white', borderLeftColor: 'white' }}>👨‍👩‍👧 Welcome, {parentInfo?.full_name || 'Parent'}!</h2>
               <p style={{ opacity: 0.9 }}>View your child's academic progress and school information</p>
+              <p style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '0.3rem' }}>
+                🔄 Auto-refreshes every 15 seconds
+              </p>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               <button 
@@ -219,12 +237,14 @@ function ParentDashboard() {
                   background: 'rgba(255,255,255,0.2)', 
                   padding: '0.3rem 1rem',
                   border: '1px solid rgba(255,255,255,0.3)',
-                  color: 'white'
+                  color: 'white',
+                  borderRadius: '8px',
+                  cursor: 'pointer'
                 }}
               >
                 {refreshing ? '🔄 Refreshing...' : '🔄 Refresh'}
               </button>
-              <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.2)', padding: '0.3rem 1rem', border: '1px solid rgba(255,255,255,0.3)', color: 'white' }}>
+              <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.2)', padding: '0.3rem 1rem', border: '1px solid rgba(255,255,255,0.3)', color: 'white', borderRadius: '8px', cursor: 'pointer' }}>
                 Logout
               </button>
             </div>
