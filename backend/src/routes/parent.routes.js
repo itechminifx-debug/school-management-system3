@@ -209,7 +209,7 @@ router.get('/fees/:studentId', authenticateToken, async (req, res) => {
             return res.status(403).json({ message: 'Access denied' });
         }
         
-        // Check if table exists first
+        // Check if table exists
         const tableCheck = await pool.query(
             `SELECT EXISTS (
                 SELECT FROM information_schema.tables 
@@ -222,13 +222,34 @@ router.get('/fees/:studentId', authenticateToken, async (req, res) => {
         }
         
         const result = await pool.query(
-            `SELECT * FROM student_school_fees
+            `SELECT id, fee_name, term, academic_year, total_amount, amount_paid, 
+                    balance, status, created_at
+             FROM student_school_fees
              WHERE student_id = $1
              ORDER BY created_at DESC`,
             [studentId]
         );
         
-        res.json({ fees: result.rows });
+        // Calculate status and balance if not set correctly
+        const fees = result.rows.map(fee => {
+            const total = parseFloat(fee.total_amount || 0);
+            const paid = parseFloat(fee.amount_paid || 0);
+            const balance = total - paid;
+            let status = fee.status || 'unpaid';
+            if (balance <= 0) status = 'paid';
+            else if (paid > 0) status = 'partial';
+            else status = 'unpaid';
+            
+            return {
+                ...fee,
+                balance: balance,
+                status: status,
+                total_amount: total,
+                amount_paid: paid
+            };
+        });
+        
+        res.json({ fees: fees });
     } catch (error) {
         console.error('Error fetching fees:', error);
         res.json({ fees: [] });
