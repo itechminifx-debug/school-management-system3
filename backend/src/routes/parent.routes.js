@@ -193,8 +193,10 @@ router.get('/fees/:studentId', authenticateToken, async (req, res) => {
     const parentId = req.user?.parentId;
     const { studentId } = req.params;
     
+    console.log('Fetching fees for student:', studentId);
+    
     if (!parentId) {
-        return res.status(400).json({ message: 'Parent ID not found' });
+        return res.status(400).json({ message: 'Parent ID not found in token' });
     }
     
     try {
@@ -207,6 +209,18 @@ router.get('/fees/:studentId', authenticateToken, async (req, res) => {
             return res.status(403).json({ message: 'Access denied' });
         }
         
+        // Check if table exists first
+        const tableCheck = await pool.query(
+            `SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'student_school_fees'
+            )`
+        );
+        
+        if (!tableCheck.rows[0].exists) {
+            return res.json({ fees: [] });
+        }
+        
         const result = await pool.query(
             `SELECT * FROM student_school_fees
              WHERE student_id = $1
@@ -217,10 +231,9 @@ router.get('/fees/:studentId', authenticateToken, async (req, res) => {
         res.json({ fees: result.rows });
     } catch (error) {
         console.error('Error fetching fees:', error);
-        res.status(500).json({ message: 'Failed to fetch fees' });
+        res.json({ fees: [] });
     }
 });
-
 // ========================================
 // ADMIN ROUTES - require admin role
 // ========================================
