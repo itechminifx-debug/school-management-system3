@@ -45,6 +45,19 @@ function ParentDashboard() {
     return () => clearInterval(interval);
   }, [selectedChild]);
 
+  // Refresh data when the page becomes visible again
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && selectedChild) {
+        console.log('Page became visible - refreshing data...');
+        fetchChildData(selectedChild.id);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [selectedChild]);
+
   const fetchChildren = async () => {
     setLoading(true);
     setError('');
@@ -57,7 +70,8 @@ function ParentDashboard() {
     }
     
     try {
-      const response = await axios.get(`${apiUrl}/api/parent/children`, {
+      const timestamp = new Date().getTime();
+      const response = await axios.get(`${apiUrl}/api/parent/children?t=${timestamp}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -92,33 +106,36 @@ function ParentDashboard() {
   const fetchChildData = async (studentId) => {
     const token = localStorage.getItem('token');
     const currentYear = new Date().getFullYear();
+    const timestamp = new Date().getTime(); // Cache buster
     
     if (!token) return;
     
     try {
-      // Fetch grades
-      const gradesRes = await axios.get(`${apiUrl}/api/parent/grades/${studentId}/Term%201/${currentYear}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      // Fetch grades with cache buster
+      const gradesRes = await axios.get(
+        `${apiUrl}/api/parent/grades/${studentId}/Term%201/${currentYear}?t=${timestamp}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       setGrades(gradesRes.data.grades || []);
 
-      // Fetch attendance
-      const attendanceRes = await axios.get(`${apiUrl}/api/parent/attendance/${studentId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      // Fetch attendance with cache buster
+      const attendanceRes = await axios.get(
+        `${apiUrl}/api/parent/attendance/${studentId}?t=${timestamp}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       setAttendance(attendanceRes.data.attendance || []);
       setAttendanceSummary(attendanceRes.data.summary || {});
 
-      // Fetch fees
-      const feesRes = await axios.get(`${apiUrl}/api/parent/fees/${studentId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      // Fetch fees with cache buster
+      const feesRes = await axios.get(
+        `${apiUrl}/api/parent/fees/${studentId}?t=${timestamp}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       setFees(feesRes.data.fees || []);
       
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Error fetching child data:', error);
-      // Don't set error here to avoid breaking the UI
     }
   };
 
