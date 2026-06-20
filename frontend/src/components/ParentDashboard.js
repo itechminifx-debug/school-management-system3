@@ -136,51 +136,48 @@ function ParentDashboard() {
     }
   };
 
-const fetchFees = async (studentId) => {
-  const token = localStorage.getItem('token');
-  if (!token) return;
-  
-  try {
-    console.log('📌 FETCHING FEES FOR STUDENT:', studentId);
+  const fetchFees = async (studentId) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
     
-    const response = await axios.get(
-      `${apiUrl}/api/parent/fees/${studentId}?t=${Date.now()}`,
-      { 
-        headers: { 
-          Authorization: `Bearer ${token}`,
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
-        } 
-      }
-    );
-    
-    console.log('📌 FEES RESPONSE:', response.data);
-    
-    if (response.data && response.data.fees) {
-      // If fees exist, use them
-      const updatedFees = response.data.fees.map(fee => {
-        const total = parseFloat(fee.total_amount || 0);
-        const paid = parseFloat(fee.amount_paid || 0);
-        const balance = total - paid;
-        let status = 'unpaid';
-        if (balance <= 0) status = 'paid';
-        else if (paid > 0) status = 'partial';
-        
-        return { ...fee, balance, status };
-      });
+    try {
+      console.log('📌 FETCHING FEES FOR STUDENT:', studentId);
       
-      setFees(updatedFees);
-      console.log('✅ FEES UPDATED:', updatedFees);
-    } else {
-      // If no fees, set empty array
+      const response = await axios.get(
+        `${apiUrl}/api/parent/fees/${studentId}?t=${Date.now()}`,
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          } 
+        }
+      );
+      
+      console.log('📌 FEES RESPONSE:', response.data);
+      
+      if (response.data && response.data.fees) {
+        const updatedFees = response.data.fees.map(fee => {
+          const total = parseFloat(fee.total_amount || 0);
+          const paid = parseFloat(fee.amount_paid || 0);
+          const balance = total - paid;
+          let status = 'unpaid';
+          if (balance <= 0) status = 'paid';
+          else if (paid > 0) status = 'partial';
+          
+          return { ...fee, balance, status };
+        });
+        
+        setFees(updatedFees);
+        console.log('✅ FEES UPDATED:', updatedFees);
+      } else {
+        setFees([]);
+      }
+    } catch (error) {
+      console.error('Error fetching fees:', error);
       setFees([]);
-      console.log('📌 No fees found for student:', studentId);
     }
-  } catch (error) {
-    console.error('Error fetching fees:', error);
-    setFees([]);
-  }
-};
+  };
 
   const handleRefreshFees = async () => {
     if (!selectedChild) return;
