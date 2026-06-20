@@ -19,14 +19,12 @@ function ParentDashboard() {
 
   const apiUrl = 'https://school-management-api-5mml.onrender.com';
 
-  // Load parent info and fetch children on mount
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (userData) {
       try {
         const parsed = JSON.parse(userData);
         setParentInfo(parsed);
-        console.log('📌 Parent Info:', parsed);
       } catch (e) {
         console.error('Error parsing user data:', e);
       }
@@ -34,41 +32,32 @@ function ParentDashboard() {
     fetchChildren();
   }, []);
 
-  // Force refresh when page becomes visible (user switches tab)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && selectedChild && !loading) {
-        console.log('📌 Tab became visible - forcing refresh...');
         fetchChildData(selectedChild.id);
       }
     };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [selectedChild, loading]);
 
-  // Force refresh when window gets focus
   useEffect(() => {
     const handleFocus = () => {
       if (selectedChild && !loading) {
-        console.log('📌 Window focus - forcing refresh...');
         fetchChildData(selectedChild.id);
       }
     };
-
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [selectedChild, loading]);
 
-  // Auto-refresh every 15 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       if (selectedChild && !loading) {
-        console.log('📌 Auto-refresh...');
         fetchChildData(selectedChild.id);
       }
-    }, 15000);
-    
+    }, 30000);
     return () => clearInterval(interval);
   }, [selectedChild, loading]);
 
@@ -84,17 +73,12 @@ function ParentDashboard() {
     }
     
     try {
-      const timestamp = new Date().getTime();
-      const response = await axios.get(`${apiUrl}/api/parent/children?t=${timestamp}`, {
+      const response = await axios.get(`${apiUrl}/api/parent/children`, {
         headers: { 
           Authorization: `Bearer ${token}`,
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
         }
       });
-      
-      console.log('📌 Children Response:', response.data);
       
       if (response.data.children && response.data.children.length > 0) {
         setChildren(response.data.children);
@@ -103,7 +87,7 @@ function ParentDashboard() {
         setLastUpdated(new Date());
       } else {
         setChildren([]);
-        setError('No children linked to your account. Please contact the school administrator.');
+        setError('No children linked to your account.');
       }
     } catch (error) {
       console.error('Error fetching children:', error);
@@ -127,88 +111,50 @@ function ParentDashboard() {
   const fetchChildData = async (studentId) => {
     const token = localStorage.getItem('token');
     const currentYear = new Date().getFullYear();
-    const timestamp = new Date().getTime();
     
     if (!token) return;
     
-    console.log('📌 Fetching data for student:', studentId);
-    
     try {
-      // Fetch grades
       const gradesRes = await axios.get(
-        `${apiUrl}/api/parent/grades/${studentId}/Term%201/${currentYear}?t=${timestamp}`,
-        { 
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Cache-Control': 'no-cache, no-store, must-revalidate'
-          } 
-        }
+        `${apiUrl}/api/parent/grades/${studentId}/Term%201/${currentYear}`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       setGrades(gradesRes.data.grades || []);
-      console.log('✅ Grades:', gradesRes.data.grades?.length || 0);
 
-      // Fetch attendance
       const attendanceRes = await axios.get(
-        `${apiUrl}/api/parent/attendance/${studentId}?t=${timestamp}`,
-        { 
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Cache-Control': 'no-cache, no-store, must-revalidate'
-          } 
-        }
+        `${apiUrl}/api/parent/attendance/${studentId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       setAttendance(attendanceRes.data.attendance || []);
       setAttendanceSummary(attendanceRes.data.summary || {});
-      console.log('✅ Attendance:', attendanceRes.data.attendance?.length || 0);
 
-      // Fetch fees - FORCE FRESH
       await fetchFees(studentId);
       
       setLastUpdated(new Date());
-      console.log('✅ Data refreshed at:', new Date().toLocaleTimeString());
     } catch (error) {
       console.error('Error fetching child data:', error);
-      if (error.response) {
-        console.error('Error response:', error.response.data);
-      }
     }
   };
 
-  // ========================================
-  // DEDICATED FEES FETCH FUNCTION
-  // ========================================
   const fetchFees = async (studentId) => {
     const token = localStorage.getItem('token');
     if (!token) return;
     
     try {
-      console.log('📌 FORCE REFRESH FEES for student:', studentId);
-      
-      // Add timestamp and random to prevent caching
-      const timestamp = new Date().getTime();
-      const random = Math.random();
-      
       const response = await axios.get(
-        `${apiUrl}/api/parent/fees/${studentId}?t=${timestamp}&r=${random}`,
+        `${apiUrl}/api/parent/fees/${studentId}?t=${Date.now()}`,
         { 
           headers: { 
             Authorization: `Bearer ${token}`,
-            'Cache-Control': 'no-cache, no-store, must-revalidate, private',
-            'Pragma': 'no-cache',
-            'Expires': '0'
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
           } 
         }
       );
       
-      console.log('📌 Fees API Response:', response.data);
-      
       if (response.data && response.data.fees) {
         setFees(response.data.fees);
-        console.log('✅ Fees updated. Count:', response.data.fees.length);
-        console.log('✅ Fees data:', response.data.fees);
       } else {
         setFees([]);
-        console.log('✅ Fees set to empty array');
       }
     } catch (error) {
       console.error('Error fetching fees:', error);
@@ -216,13 +162,9 @@ function ParentDashboard() {
     }
   };
 
-  // ========================================
-  // REFRESH FEES FUNCTION (called from button)
-  // ========================================
   const handleRefreshFees = async () => {
     if (!selectedChild) return;
     setRefreshing(true);
-    console.log('🔄 MANUAL FEES REFRESH...');
     await fetchFees(selectedChild.id);
     setRefreshing(false);
   };
@@ -234,7 +176,6 @@ function ParentDashboard() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    console.log('📌 Manual full refresh triggered...');
     if (selectedChild) {
       await fetchChildData(selectedChild.id);
     } else {
@@ -274,7 +215,7 @@ function ParentDashboard() {
         <div className="container">
           <div className="card">
             <h2>👨‍👩‍👧 Parent Dashboard</h2>
-            <div className="error">⚠️ {error || 'No children linked to your account. Please contact the school administrator.'}</div>
+            <div className="error">⚠️ {error || 'No children linked to your account.'}</div>
             {parentInfo && (
               <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
                 <p><strong>Parent ID:</strong> {parentInfo.id}</p>
@@ -299,23 +240,9 @@ function ParentDashboard() {
             <div>
               <h2 style={{ color: 'white', borderLeftColor: 'white' }}>👨‍👩‍👧 Welcome, {parentInfo?.full_name || 'Parent'}!</h2>
               <p style={{ opacity: 0.9 }}>View your child's academic progress and school information</p>
-              <p style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '0.3rem' }}>
-                🔄 Auto-refreshes every 15 seconds
-              </p>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <button 
-                onClick={handleRefresh} 
-                disabled={refreshing}
-                style={{ 
-                  background: 'rgba(255,255,255,0.2)', 
-                  padding: '0.3rem 1rem',
-                  border: '1px solid rgba(255,255,255,0.3)',
-                  color: 'white',
-                  borderRadius: '8px',
-                  cursor: 'pointer'
-                }}
-              >
+              <button onClick={handleRefresh} disabled={refreshing} style={{ background: 'rgba(255,255,255,0.2)', padding: '0.3rem 1rem', border: '1px solid rgba(255,255,255,0.3)', color: 'white', borderRadius: '8px', cursor: 'pointer' }}>
                 {refreshing ? '🔄 Refreshing...' : '🔄 Refresh'}
               </button>
               <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.2)', padding: '0.3rem 1rem', border: '1px solid rgba(255,255,255,0.3)', color: 'white', borderRadius: '8px', cursor: 'pointer' }}>
@@ -330,7 +257,6 @@ function ParentDashboard() {
           )}
         </div>
 
-        {/* Child Selector */}
         <div className="card">
           <h3>Select Child</h3>
           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
@@ -359,7 +285,6 @@ function ParentDashboard() {
 
         {selectedChild && (
           <>
-            {/* Student Info */}
             <div className="card">
               <h3>📋 Student Information</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
@@ -370,134 +295,50 @@ function ParentDashboard() {
               </div>
             </div>
 
-            {/* Navigation Tabs */}
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-              <button
-                onClick={() => {
-                  setActiveTab('overview');
-                }}
-                style={{
-                  background: activeTab === 'overview' ? '#6366f1' : 'white',
-                  color: activeTab === 'overview' ? 'white' : '#1e293b',
-                  padding: '0.5rem 1.5rem',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                }}
-              >
-                Overview
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('grades');
-                }}
-                style={{
-                  background: activeTab === 'grades' ? '#6366f1' : 'white',
-                  color: activeTab === 'grades' ? 'white' : '#1e293b',
-                  padding: '0.5rem 1.5rem',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                }}
-              >
-                Grades
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('attendance');
-                }}
-                style={{
-                  background: activeTab === 'attendance' ? '#6366f1' : 'white',
-                  color: activeTab === 'attendance' ? 'white' : '#1e293b',
-                  padding: '0.5rem 1.5rem',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                }}
-              >
-                Attendance
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('fees');
-                  if (selectedChild) {
-                    console.log('📌 Fees tab clicked - FORCE REFRESH...');
-                    fetchFees(selectedChild.id);
-                  }
-                }}
-                style={{
-                  background: activeTab === 'fees' ? '#6366f1' : 'white',
-                  color: activeTab === 'fees' ? 'white' : '#1e293b',
-                  padding: '0.5rem 1.5rem',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                }}
-              >
-                Fees
-              </button>
+              {['overview', 'grades', 'attendance', 'fees'].map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    if (tab === 'fees' && selectedChild) {
+                      fetchFees(selectedChild.id);
+                    }
+                  }}
+                  style={{
+                    background: activeTab === tab ? '#6366f1' : 'white',
+                    color: activeTab === tab ? 'white' : '#1e293b',
+                    padding: '0.5rem 1.5rem',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                  }}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
             </div>
 
-            {/* Overview Tab */}
             {activeTab === 'overview' && (
               <div className="stats-grid">
-                <div className="stat-card">
-                  <h3>{attendanceSummary.total || 0}</h3>
-                  <p>Total Days</p>
-                </div>
-                <div className="stat-card">
-                  <h3 style={{ color: '#10b981' }}>{attendanceSummary.present || 0}</h3>
-                  <p>Present</p>
-                </div>
-                <div className="stat-card">
-                  <h3 style={{ color: '#ef4444' }}>{attendanceSummary.absent || 0}</h3>
-                  <p>Absent</p>
-                </div>
-                <div className="stat-card">
-                  <h3 style={{ color: '#f59e0b' }}>{attendanceSummary.late || 0}</h3>
-                  <p>Late</p>
-                </div>
-                <div className="stat-card">
-                  <h3>{grades.length}</h3>
-                  <p>Subjects</p>
-                </div>
-                <div className="stat-card">
-                  <h3>
-                    {fees.filter(f => {
-                      const balance = parseFloat(f.total_amount || 0) - parseFloat(f.amount_paid || 0);
-                      return balance <= 0;
-                    }).length}
-                  </h3>
-                  <p>Fees Paid</p>
-                </div>
+                <div className="stat-card"><h3>{attendanceSummary.total || 0}</h3><p>Total Days</p></div>
+                <div className="stat-card"><h3 style={{ color: '#10b981' }}>{attendanceSummary.present || 0}</h3><p>Present</p></div>
+                <div className="stat-card"><h3 style={{ color: '#ef4444' }}>{attendanceSummary.absent || 0}</h3><p>Absent</p></div>
+                <div className="stat-card"><h3 style={{ color: '#f59e0b' }}>{attendanceSummary.late || 0}</h3><p>Late</p></div>
+                <div className="stat-card"><h3>{grades.length}</h3><p>Subjects</p></div>
+                <div className="stat-card"><h3>{fees.filter(f => (parseFloat(f.total_amount || 0) - parseFloat(f.amount_paid || 0)) <= 0).length}</h3><p>Fees Paid</p></div>
               </div>
             )}
 
-            {/* Grades Tab */}
             {activeTab === 'grades' && (
               <div className="card">
                 <h3>📊 Grades Overview</h3>
-                {grades.length === 0 ? (
-                  <p>No grades available for this term.</p>
-                ) : (
+                {grades.length === 0 ? <p>No grades available for this term.</p> : (
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%' }}>
-                      <thead>
-                        <tr>
-                          <th>Subject</th>
-                          <th>Score</th>
-                          <th>Grade</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
+                      <thead><tr><th>Subject</th><th>Score</th><th>Grade</th><th>Status</th></tr></thead>
                       <tbody>
                         {grades.map((grade, index) => (
                           <tr key={index}>
@@ -506,15 +347,10 @@ function ParentDashboard() {
                             <td>{getGradeLetter(grade.score)}</td>
                             <td>
                               <span style={{
-                                background: parseFloat(grade.score) >= 70 ? '#10b981' : 
-                                           parseFloat(grade.score) >= 50 ? '#f59e0b' : '#ef4444',
-                                color: 'white',
-                                padding: '2px 12px',
-                                borderRadius: '20px',
-                                fontSize: '12px'
+                                background: parseFloat(grade.score) >= 70 ? '#10b981' : parseFloat(grade.score) >= 50 ? '#f59e0b' : '#ef4444',
+                                color: 'white', padding: '2px 12px', borderRadius: '20px', fontSize: '12px'
                               }}>
-                                {parseFloat(grade.score) >= 70 ? '✅ Good' :
-                                 parseFloat(grade.score) >= 50 ? '⚠️ Average' : '❌ Needs Improvement'}
+                                {parseFloat(grade.score) >= 70 ? '✅ Good' : parseFloat(grade.score) >= 50 ? '⚠️ Average' : '❌ Needs Improvement'}
                               </span>
                             </td>
                           </tr>
@@ -526,7 +362,6 @@ function ParentDashboard() {
               </div>
             )}
 
-            {/* Attendance Tab */}
             {activeTab === 'attendance' && (
               <div className="card">
                 <h3>📋 Attendance Records</h3>
@@ -536,26 +371,15 @@ function ParentDashboard() {
                   <div className="stat-card"><h3 style={{ color: '#f59e0b' }}>{attendanceSummary.late || 0}</h3><p>Late</p></div>
                   <div className="stat-card"><h3>{attendanceSummary.total || 0}</h3><p>Total Days</p></div>
                 </div>
-                {attendance.length === 0 ? (
-                  <p>No attendance records found.</p>
-                ) : (
+                {attendance.length === 0 ? <p>No attendance records found.</p> : (
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%' }}>
-                      <thead>
-                        <tr>
-                          <th>Date</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
+                      <thead><tr><th>Date</th><th>Status</th></tr></thead>
                       <tbody>
                         {attendance.map(record => (
                           <tr key={record.date}>
                             <td>{new Date(record.date).toLocaleDateString()}</td>
-                            <td>
-                              <span className={getStatusClass(record.status)}>
-                                {record.status.toUpperCase()}
-                              </span>
-                            </td>
+                            <td><span className={getStatusClass(record.status)}>{record.status.toUpperCase()}</span></td>
                           </tr>
                         ))}
                       </tbody>
@@ -565,68 +389,58 @@ function ParentDashboard() {
               </div>
             )}
 
-            {/* Fees Tab */}
             {activeTab === 'fees' && (
               <div className="card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
                   <h3 style={{ marginBottom: 0 }}>💰 School Fees</h3>
-                  <button 
-                    onClick={handleRefreshFees}
-                    disabled={refreshing}
-                    style={{ 
-                      background: '#6366f1', 
-                      padding: '0.3rem 1rem',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      color: 'white',
-                      fontSize: '0.85rem'
-                    }}
-                  >
+                  <button onClick={handleRefreshFees} disabled={refreshing} style={{ background: '#6366f1', padding: '0.3rem 1rem', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white', fontSize: '0.85rem' }}>
                     {refreshing ? '🔄 Refreshing...' : '🔄 Refresh Fees'}
                   </button>
                 </div>
-                {console.log('📌 Rendering fees tab. Fees array:', fees)}
-                {console.log('📌 Fees length:', fees.length)}
+                
                 {fees.length === 0 ? (
                   <p>No fee records found.</p>
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
-                        <tr>
-                          <th>Fee Type</th>
-                          <th>Term</th>
-                          <th>Year</th>
-                          <th>Total (₵)</th>
-                          <th>Paid (₵)</th>
-                          <th>Balance (₵)</th>
-                          <th>Status</th>
+                        <tr style={{ background: '#1e3c72', color: 'white' }}>
+                          <th style={{ padding: '10px' }}>Fee Type</th>
+                          <th style={{ padding: '10px' }}>Term</th>
+                          <th style={{ padding: '10px' }}>Year</th>
+                          <th style={{ padding: '10px', textAlign: 'center' }}>Total (₵)</th>
+                          <th style={{ padding: '10px', textAlign: 'center' }}>Paid (₵)</th>
+                          <th style={{ padding: '10px', textAlign: 'center' }}>Balance (₵)</th>
+                          <th style={{ padding: '10px', textAlign: 'center' }}>Status</th>
                         </tr>
                       </thead>
                       <tbody>
                         {fees.map((fee, index) => {
-                          const balance = parseFloat(fee.total_amount || 0) - parseFloat(fee.amount_paid || 0);
-                          let status = fee.status || 'unpaid';
+                          const total = parseFloat(fee.total_amount || 0);
+                          const paid = parseFloat(fee.amount_paid || 0);
+                          const balance = total - paid;
+                          let status = 'unpaid';
                           if (balance <= 0) status = 'paid';
-                          else if (parseFloat(fee.amount_paid || 0) > 0) status = 'partial';
+                          else if (paid > 0) status = 'partial';
                           
                           return (
-                            <tr key={index}>
-                              <td>{fee.fee_name || 'Unknown Fee'}</td>
-                              <td>{fee.term || 'N/A'}</td>
-                              <td>{fee.academic_year || 'N/A'}</td>
-                              <td>₵{parseFloat(fee.total_amount || 0).toFixed(2)}</td>
-                              <td>₵{parseFloat(fee.amount_paid || 0).toFixed(2)}</td>
-                              <td>₵{balance.toFixed(2)}</td>
-                              <td>
+                            <tr key={index} style={{ borderBottom: '1px solid #ddd' }}>
+                              <td style={{ padding: '8px' }}><strong>{fee.fee_name || 'Unknown'}</strong></td>
+                              <td style={{ padding: '8px' }}>{fee.term || 'N/A'}</td>
+                              <td style={{ padding: '8px' }}>{fee.academic_year || 'N/A'}</td>
+                              <td style={{ padding: '8px', textAlign: 'center' }}>₵{total.toFixed(2)}</td>
+                              <td style={{ padding: '8px', textAlign: 'center', color: '#10b981', fontWeight: 'bold' }}>₵{paid.toFixed(2)}</td>
+                              <td style={{ padding: '8px', textAlign: 'center', color: balance > 0 ? '#e74c3c' : '#10b981', fontWeight: 'bold' }}>
+                                ₵{balance.toFixed(2)}
+                              </td>
+                              <td style={{ padding: '8px', textAlign: 'center' }}>
                                 <span style={{
-                                  background: status === 'paid' ? '#10b981' : 
-                                             status === 'partial' ? '#f59e0b' : '#ef4444',
+                                  background: status === 'paid' ? '#10b981' : status === 'partial' ? '#f59e0b' : '#ef4444',
                                   color: 'white',
-                                  padding: '2px 12px',
+                                  padding: '4px 12px',
                                   borderRadius: '20px',
-                                  fontSize: '12px'
+                                  fontSize: '11px',
+                                  fontWeight: 'bold'
                                 }}>
                                   {status.toUpperCase()}
                                 </span>
