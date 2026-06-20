@@ -186,20 +186,28 @@ router.get('/attendance/:studentId', authenticateToken, async (req, res) => {
 });
 
 // ========================================
-// GET CHILD'S FEES
+// GET CHILD'S FEES - ALWAYS FRESH
 // ========================================
 router.get('/fees/:studentId', authenticateToken, async (req, res) => {
     const pool = getDb(req);
     const parentId = req.user?.parentId;
     const { studentId } = req.params;
     
-    console.log('Fetching fees for student:', studentId);
+    // FORCE NO CACHING
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    console.log('===== FETCHING FEES =====');
+    console.log('Student ID:', studentId);
+    console.log('Parent ID:', parentId);
     
     if (!parentId) {
         return res.status(400).json({ message: 'Parent ID not found in token' });
     }
     
     try {
+        // Verify parent has access to this student
         const accessCheck = await pool.query(
             'SELECT * FROM parent_students WHERE parent_id = $1 AND student_id = $2',
             [parentId, studentId]
@@ -221,6 +229,7 @@ router.get('/fees/:studentId', authenticateToken, async (req, res) => {
             return res.json({ fees: [] });
         }
         
+        // ALWAYS fetch fresh from database
         const result = await pool.query(
             `SELECT id, fee_name, term, academic_year, total_amount, amount_paid, 
                     balance, status, created_at
@@ -230,15 +239,16 @@ router.get('/fees/:studentId', authenticateToken, async (req, res) => {
             [studentId]
         );
         
-        // Calculate status and balance if not set correctly
+        console.log('Raw fees from database:', result.rows);
+        
+        // Calculate balance and status for each fee
         const fees = result.rows.map(fee => {
             const total = parseFloat(fee.total_amount || 0);
             const paid = parseFloat(fee.amount_paid || 0);
             const balance = total - paid;
-            let status = fee.status || 'unpaid';
+            let status = 'unpaid';
             if (balance <= 0) status = 'paid';
             else if (paid > 0) status = 'partial';
-            else status = 'unpaid';
             
             return {
                 ...fee,
@@ -248,6 +258,9 @@ router.get('/fees/:studentId', authenticateToken, async (req, res) => {
                 amount_paid: paid
             };
         });
+        
+        console.log('Processed fees:', fees);
+        console.log('Total fees found:', fees.length);
         
         res.json({ fees: fees });
     } catch (error) {
