@@ -161,23 +161,8 @@ function ParentDashboard() {
       setAttendanceSummary(attendanceRes.data.summary || {});
       console.log('✅ Attendance:', attendanceRes.data.attendance?.length || 0);
 
-      // Fetch fees - THIS IS THE IMPORTANT ONE
-      console.log('📌 Fetching fees for student:', studentId);
-      const feesRes = await axios.get(
-        `${apiUrl}/api/parent/fees/${studentId}?t=${timestamp}`,
-        { 
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-          } 
-        }
-      );
-      console.log('📌 Fees API Response:', feesRes.data);
-      console.log('📌 Fees array:', feesRes.data.fees);
-      setFees(feesRes.data.fees || []);
-      console.log('✅ Fees set to state. Count:', feesRes.data.fees?.length || 0);
+      // Fetch fees - FORCE FRESH
+      await fetchFees(studentId);
       
       setLastUpdated(new Date());
       console.log('✅ Data refreshed at:', new Date().toLocaleTimeString());
@@ -189,6 +174,59 @@ function ParentDashboard() {
     }
   };
 
+  // ========================================
+  // DEDICATED FEES FETCH FUNCTION
+  // ========================================
+  const fetchFees = async (studentId) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
+    try {
+      console.log('📌 FORCE REFRESH FEES for student:', studentId);
+      
+      // Add timestamp and random to prevent caching
+      const timestamp = new Date().getTime();
+      const random = Math.random();
+      
+      const response = await axios.get(
+        `${apiUrl}/api/parent/fees/${studentId}?t=${timestamp}&r=${random}`,
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Cache-Control': 'no-cache, no-store, must-revalidate, private',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          } 
+        }
+      );
+      
+      console.log('📌 Fees API Response:', response.data);
+      
+      if (response.data && response.data.fees) {
+        setFees(response.data.fees);
+        console.log('✅ Fees updated. Count:', response.data.fees.length);
+        console.log('✅ Fees data:', response.data.fees);
+      } else {
+        setFees([]);
+        console.log('✅ Fees set to empty array');
+      }
+    } catch (error) {
+      console.error('Error fetching fees:', error);
+      setFees([]);
+    }
+  };
+
+  // ========================================
+  // REFRESH FEES FUNCTION (called from button)
+  // ========================================
+  const handleRefreshFees = async () => {
+    if (!selectedChild) return;
+    setRefreshing(true);
+    console.log('🔄 MANUAL FEES REFRESH...');
+    await fetchFees(selectedChild.id);
+    setRefreshing(false);
+  };
+
   const handleChildSelect = (child) => {
     setSelectedChild(child);
     fetchChildData(child.id);
@@ -196,7 +234,7 @@ function ParentDashboard() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    console.log('📌 Manual refresh triggered...');
+    console.log('📌 Manual full refresh triggered...');
     if (selectedChild) {
       await fetchChildData(selectedChild.id);
     } else {
@@ -334,30 +372,78 @@ function ParentDashboard() {
 
             {/* Navigation Tabs */}
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-              {['overview', 'grades', 'attendance', 'fees'].map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => {
-                    setActiveTab(tab);
-                    if (tab === 'fees' && selectedChild) {
-                      console.log('📌 Fees tab clicked - forcing refresh...');
-                      fetchChildData(selectedChild.id);
-                    }
-                  }}
-                  style={{
-                    background: activeTab === tab ? '#6366f1' : 'white',
-                    color: activeTab === tab ? 'white' : '#1e293b',
-                    padding: '0.5rem 1.5rem',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontWeight: '600',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                  }}
-                >
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </button>
-              ))}
+              <button
+                onClick={() => {
+                  setActiveTab('overview');
+                }}
+                style={{
+                  background: activeTab === 'overview' ? '#6366f1' : 'white',
+                  color: activeTab === 'overview' ? 'white' : '#1e293b',
+                  padding: '0.5rem 1.5rem',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}
+              >
+                Overview
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('grades');
+                }}
+                style={{
+                  background: activeTab === 'grades' ? '#6366f1' : 'white',
+                  color: activeTab === 'grades' ? 'white' : '#1e293b',
+                  padding: '0.5rem 1.5rem',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}
+              >
+                Grades
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('attendance');
+                }}
+                style={{
+                  background: activeTab === 'attendance' ? '#6366f1' : 'white',
+                  color: activeTab === 'attendance' ? 'white' : '#1e293b',
+                  padding: '0.5rem 1.5rem',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}
+              >
+                Attendance
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('fees');
+                  if (selectedChild) {
+                    console.log('📌 Fees tab clicked - FORCE REFRESH...');
+                    fetchFees(selectedChild.id);
+                  }
+                }}
+                style={{
+                  background: activeTab === 'fees' ? '#6366f1' : 'white',
+                  color: activeTab === 'fees' ? 'white' : '#1e293b',
+                  padding: '0.5rem 1.5rem',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}
+              >
+                Fees
+              </button>
             </div>
 
             {/* Overview Tab */}
@@ -482,7 +568,24 @@ function ParentDashboard() {
             {/* Fees Tab */}
             {activeTab === 'fees' && (
               <div className="card">
-                <h3>💰 School Fees</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                  <h3 style={{ marginBottom: 0 }}>💰 School Fees</h3>
+                  <button 
+                    onClick={handleRefreshFees}
+                    disabled={refreshing}
+                    style={{ 
+                      background: '#6366f1', 
+                      padding: '0.3rem 1rem',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      color: 'white',
+                      fontSize: '0.85rem'
+                    }}
+                  >
+                    {refreshing ? '🔄 Refreshing...' : '🔄 Refresh Fees'}
+                  </button>
+                </div>
                 {console.log('📌 Rendering fees tab. Fees array:', fees)}
                 {console.log('📌 Fees length:', fees.length)}
                 {fees.length === 0 ? (
