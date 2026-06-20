@@ -25,6 +25,7 @@ function ParentDashboard() {
       try {
         const parsed = JSON.parse(userData);
         setParentInfo(parsed);
+        console.log('📌 PARENT INFO:', parsed);
       } catch (e) {
         console.error('Error parsing user data:', e);
       }
@@ -35,6 +36,7 @@ function ParentDashboard() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && selectedChild && !loading) {
+        console.log('📌 TAB VISIBLE - REFRESHING...');
         fetchChildData(selectedChild.id);
       }
     };
@@ -45,6 +47,7 @@ function ParentDashboard() {
   useEffect(() => {
     const handleFocus = () => {
       if (selectedChild && !loading) {
+        console.log('📌 WINDOW FOCUS - REFRESHING...');
         fetchChildData(selectedChild.id);
       }
     };
@@ -55,9 +58,10 @@ function ParentDashboard() {
   useEffect(() => {
     const interval = setInterval(() => {
       if (selectedChild && !loading) {
+        console.log('📌 AUTO-REFRESH...');
         fetchChildData(selectedChild.id);
       }
-    }, 30000);
+    }, 15000);
     return () => clearInterval(interval);
   }, [selectedChild, loading]);
 
@@ -73,12 +77,14 @@ function ParentDashboard() {
     }
     
     try {
-      const response = await axios.get(`${apiUrl}/api/parent/children`, {
+      const response = await axios.get(`${apiUrl}/api/parent/children?t=${Date.now()}`, {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Cache-Control': 'no-cache, no-store, must-revalidate'
         }
       });
+      
+      console.log('📌 CHILDREN RESPONSE:', response.data);
       
       if (response.data.children && response.data.children.length > 0) {
         setChildren(response.data.children);
@@ -114,23 +120,28 @@ function ParentDashboard() {
     
     if (!token) return;
     
+    console.log('📌 FETCHING DATA FOR STUDENT:', studentId);
+    
     try {
       const gradesRes = await axios.get(
-        `${apiUrl}/api/parent/grades/${studentId}/Term%201/${currentYear}`,
+        `${apiUrl}/api/parent/grades/${studentId}/Term%201/${currentYear}?t=${Date.now()}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setGrades(gradesRes.data.grades || []);
+      console.log('✅ GRADES:', gradesRes.data.grades?.length || 0);
 
       const attendanceRes = await axios.get(
-        `${apiUrl}/api/parent/attendance/${studentId}`,
+        `${apiUrl}/api/parent/attendance/${studentId}?t=${Date.now()}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setAttendance(attendanceRes.data.attendance || []);
       setAttendanceSummary(attendanceRes.data.summary || {});
+      console.log('✅ ATTENDANCE:', attendanceRes.data.attendance?.length || 0);
 
       await fetchFees(studentId);
       
       setLastUpdated(new Date());
+      console.log('✅ DATA REFRESHED AT:', new Date().toLocaleTimeString());
     } catch (error) {
       console.error('Error fetching child data:', error);
     }
@@ -144,12 +155,13 @@ function ParentDashboard() {
       console.log('📌 FETCHING FEES FOR STUDENT:', studentId);
       
       const response = await axios.get(
-        `${apiUrl}/api/parent/fees/${studentId}?t=${Date.now()}`,
+        `${apiUrl}/api/parent/fees/${studentId}?t=${Date.now()}&r=${Math.random()}`,
         { 
           headers: { 
             Authorization: `Bearer ${token}`,
             'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache'
+            'Pragma': 'no-cache',
+            'Expires': '0'
           } 
         }
       );
@@ -170,8 +182,10 @@ function ParentDashboard() {
         
         setFees(updatedFees);
         console.log('✅ FEES UPDATED:', updatedFees);
+        console.log('✅ FEES COUNT:', updatedFees.length);
       } else {
         setFees([]);
+        console.log('📌 NO FEES FOUND');
       }
     } catch (error) {
       console.error('Error fetching fees:', error);
@@ -182,6 +196,7 @@ function ParentDashboard() {
   const handleRefreshFees = async () => {
     if (!selectedChild) return;
     setRefreshing(true);
+    console.log('🔄 MANUAL FEES REFRESH...');
     await fetchFees(selectedChild.id);
     setRefreshing(false);
   };
@@ -193,6 +208,7 @@ function ParentDashboard() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    console.log('🔄 MANUAL FULL REFRESH...');
     if (selectedChild) {
       await fetchChildData(selectedChild.id);
     } else {
@@ -257,6 +273,9 @@ function ParentDashboard() {
             <div>
               <h2 style={{ color: 'white', borderLeftColor: 'white' }}>👨‍👩‍👧 Welcome, {parentInfo?.full_name || 'Parent'}!</h2>
               <p style={{ opacity: 0.9 }}>View your child's academic progress and school information</p>
+              <p style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '0.3rem' }}>
+                🔄 Auto-refreshes every 15 seconds
+              </p>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               <button onClick={handleRefresh} disabled={refreshing} style={{ background: 'rgba(255,255,255,0.2)', padding: '0.3rem 1rem', border: '1px solid rgba(255,255,255,0.3)', color: 'white', borderRadius: '8px', cursor: 'pointer' }}>
@@ -345,7 +364,15 @@ function ParentDashboard() {
                 <div className="stat-card"><h3 style={{ color: '#ef4444' }}>{attendanceSummary.absent || 0}</h3><p>Absent</p></div>
                 <div className="stat-card"><h3 style={{ color: '#f59e0b' }}>{attendanceSummary.late || 0}</h3><p>Late</p></div>
                 <div className="stat-card"><h3>{grades.length}</h3><p>Subjects</p></div>
-                <div className="stat-card"><h3>{fees.filter(f => (parseFloat(f.total_amount || 0) - parseFloat(f.amount_paid || 0)) <= 0).length}</h3><p>Fees Paid</p></div>
+                <div className="stat-card">
+                  <h3>
+                    {fees.filter(f => {
+                      const balance = parseFloat(f.total_amount || 0) - parseFloat(f.amount_paid || 0);
+                      return balance <= 0;
+                    }).length}
+                  </h3>
+                  <p>Fees Paid</p>
+                </div>
               </div>
             )}
 
@@ -410,10 +437,15 @@ function ParentDashboard() {
               <div className="card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
                   <h3 style={{ marginBottom: 0 }}>💰 School Fees</h3>
-                  <button onClick={handleRefreshFees} disabled={refreshing} style={{ background: '#6366f1', padding: '0.3rem 1rem', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white', fontSize: '0.85rem' }}>
-                    {refreshing ? '🔄 Refreshing...' : '🔄 Refresh Fees'}
-                  </button>
+                  <div>
+                    <button onClick={handleRefreshFees} disabled={refreshing} style={{ background: '#6366f1', padding: '0.3rem 1rem', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white', fontSize: '0.85rem', marginRight: '0.5rem' }}>
+                      {refreshing ? '🔄 Refreshing...' : '🔄 Refresh Fees'}
+                    </button>
+                  </div>
                 </div>
+                
+                {console.log('📌 RENDERING FEES TAB. FEES:', fees)}
+                {console.log('📌 FEES LENGTH:', fees.length)}
                 
                 {fees.length === 0 ? (
                   <p>No fee records found.</p>
