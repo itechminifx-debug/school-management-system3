@@ -433,76 +433,74 @@ function ParentDashboard() {
               </div>
             )}
 
-            {activeTab === 'fees' && (
-              <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                  <h3 style={{ marginBottom: 0 }}>💰 School Fees</h3>
-                  <div>
-                    <button onClick={handleRefreshFees} disabled={refreshing} style={{ background: '#6366f1', padding: '0.3rem 1rem', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white', fontSize: '0.85rem', marginRight: '0.5rem' }}>
-                      {refreshing ? '🔄 Refreshing...' : '🔄 Refresh Fees'}
-                    </button>
-                  </div>
-                </div>
-                
-                {console.log('📌 RENDERING FEES TAB. FEES:', fees)}
-                {console.log('📌 FEES LENGTH:', fees.length)}
-                
-                {fees.length === 0 ? (
-                  <p>No fee records found.</p>
-                ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr style={{ background: '#1e3c72', color: 'white' }}>
-                          <th style={{ padding: '10px' }}>Fee Type</th>
-                          <th style={{ padding: '10px' }}>Term</th>
-                          <th style={{ padding: '10px' }}>Year</th>
-                          <th style={{ padding: '10px', textAlign: 'center' }}>Total (₵)</th>
-                          <th style={{ padding: '10px', textAlign: 'center' }}>Paid (₵)</th>
-                          <th style={{ padding: '10px', textAlign: 'center' }}>Balance (₵)</th>
-                          <th style={{ padding: '10px', textAlign: 'center' }}>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {fees.map((fee, index) => {
-                          const total = parseFloat(fee.total_amount || 0);
-                          const paid = parseFloat(fee.amount_paid || 0);
-                          const balance = total - paid;
-                          let status = 'unpaid';
-                          if (balance <= 0) status = 'paid';
-                          else if (paid > 0) status = 'partial';
-                          
-                          return (
-                            <tr key={index} style={{ borderBottom: '1px solid #ddd' }}>
-                              <td style={{ padding: '8px' }}><strong>{fee.fee_name || 'Unknown'}</strong></td>
-                              <td style={{ padding: '8px' }}>{fee.term || 'N/A'}</td>
-                              <td style={{ padding: '8px' }}>{fee.academic_year || 'N/A'}</td>
-                              <td style={{ padding: '8px', textAlign: 'center' }}>₵{total.toFixed(2)}</td>
-                              <td style={{ padding: '8px', textAlign: 'center', color: '#10b981', fontWeight: 'bold' }}>₵{paid.toFixed(2)}</td>
-                              <td style={{ padding: '8px', textAlign: 'center', color: balance > 0 ? '#e74c3c' : '#10b981', fontWeight: 'bold' }}>
-                                ₵{balance.toFixed(2)}
-                              </td>
-                              <td style={{ padding: '8px', textAlign: 'center' }}>
-                                <span style={{
-                                  background: status === 'paid' ? '#10b981' : status === 'partial' ? '#f59e0b' : '#ef4444',
-                                  color: 'white',
-                                  padding: '4px 12px',
-                                  borderRadius: '20px',
-                                  fontSize: '11px',
-                                  fontWeight: 'bold'
-                                }}>
-                                  {status.toUpperCase()}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
+           {activeTab === 'fees' && (
+  <div className="card">
+    <h3>💰 School Fees</h3>
+    
+    {/* Show raw data for debugging */}
+    <div style={{ background: '#f0f0f0', padding: '15px', marginBottom: '15px', borderRadius: '8px' }}>
+      <p><strong>Debug Info:</strong></p>
+      <p>Fees count: {fees.length}</p>
+      <pre style={{ fontSize: '12px', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+        {JSON.stringify(fees, null, 2)}
+      </pre>
+    </div>
+
+    {fees.length === 0 ? (
+      <p style={{ color: '#666' }}>No fee records found.</p>
+    ) : (
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: '#1e3c72', color: 'white' }}>
+              <th style={{ padding: '10px', textAlign: 'left' }}>Fee Type</th>
+              <th style={{ padding: '10px', textAlign: 'center' }}>Total (₵)</th>
+              <th style={{ padding: '10px', textAlign: 'center' }}>Paid (₵)</th>
+              <th style={{ padding: '10px', textAlign: 'center' }}>Balance (₵)</th>
+              <th style={{ padding: '10px', textAlign: 'center' }}>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {fees.map((fee, index) => {
+              const total = Number(fee.total_amount) || 0;
+              const paid = Number(fee.amount_paid) || 0;
+              const balance = total - paid;
+              let status = 'unpaid';
+              if (balance <= 0) status = 'paid';
+              else if (paid > 0) status = 'partial';
+              
+              return (
+                <tr key={index} style={{ borderBottom: '1px solid #ddd' }}>
+                  <td style={{ padding: '8px' }}><strong>{fee.fee_name || 'Unknown'}</strong></td>
+                  <td style={{ padding: '8px', textAlign: 'center' }}>₵{total.toFixed(2)}</td>
+                  <td style={{ padding: '8px', textAlign: 'center', color: paid > 0 ? '#10b981' : '#666' }}>
+                    ₵{paid.toFixed(2)}
+                  </td>
+                  <td style={{ padding: '8px', textAlign: 'center', color: balance > 0 ? '#e74c3c' : '#10b981' }}>
+                    ₵{balance.toFixed(2)}
+                  </td>
+                  <td style={{ padding: '8px', textAlign: 'center' }}>
+                    <span style={{
+                      background: status === 'paid' ? '#10b981' : 
+                                 status === 'partial' ? '#f59e0b' : '#ef4444',
+                      color: 'white',
+                      padding: '4px 12px',
+                      borderRadius: '20px',
+                      fontSize: '11px',
+                      fontWeight: 'bold'
+                    }}>
+                      {status.toUpperCase()}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+)}
           </>
         )}
       </div>
