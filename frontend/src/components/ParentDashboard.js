@@ -433,21 +433,21 @@ function ParentDashboard() {
               </div>
             )}
 
-           {activeTab === 'fees' && (
+{activeTab === 'fees' && (
   <div className="card">
-    <h3>💰 School Fees</h3>
-    
-    {/* Show raw data for debugging */}
-    <div style={{ background: '#f0f0f0', padding: '15px', marginBottom: '15px', borderRadius: '8px' }}>
-      <p><strong>Debug Info:</strong></p>
-      <p>Fees count: {fees.length}</p>
-      <pre style={{ fontSize: '12px', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-        {JSON.stringify(fees, null, 2)}
-      </pre>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
+      <h3 style={{ marginBottom: 0 }}>💰 School Fees</h3>
+      <button 
+        onClick={handleRefreshFees} 
+        disabled={refreshing} 
+        style={{ background: '#6366f1', padding: '0.3rem 1rem', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white', fontSize: '0.85rem' }}
+      >
+        {refreshing ? '🔄 Refreshing...' : '🔄 Refresh Fees'}
+      </button>
     </div>
-
+    
     {fees.length === 0 ? (
-      <p style={{ color: '#666' }}>No fee records found.</p>
+      <p>No fee records found.</p>
     ) : (
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
