@@ -26,6 +26,18 @@ router.post('/pay', authenticateToken, async (req, res) => {
     try {
         const receiptNumber = `SCH-${payment_date.replace(/-/g, '')}-${student_id}-${Date.now()}`;
         
+        // Check if student_school_fees table exists
+        const tableCheck = await pool.query(
+            `SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'student_school_fees'
+            )`
+        );
+        
+        if (!tableCheck.rows[0].exists) {
+            return res.status(500).json({ message: 'Table student_school_fees does not exist' });
+        }
+        
         // Check if payment record exists for Tuition Fee
         const existingResult = await pool.query(
             `SELECT id, amount_paid, total_amount FROM student_school_fees
@@ -90,13 +102,7 @@ router.get('/summary/:classLevelId/:term/:academicYear', authenticateToken, asyn
     const { classLevelId, term, academicYear } = req.params;
     const schoolId = req.user.schoolId;
     
-    console.log('===== FETCHING FEE SUMMARY =====');
-    console.log('Class:', classLevelId);
-    console.log('Term:', term);
-    console.log('Year:', academicYear);
-    
     try {
-        // Get all students in the class
         const studentsResult = await pool.query(
             `SELECT s.id, s.full_name, s.admission_number
              FROM students s
@@ -105,7 +111,6 @@ router.get('/summary/:classLevelId/:term/:academicYear', authenticateToken, asyn
             [schoolId, classLevelId]
         );
         
-        // Get payments
         const paymentsResult = await pool.query(
             `SELECT sf.*, s.full_name, s.admission_number
              FROM student_school_fees sf
@@ -137,9 +142,6 @@ router.get('/summary/:classLevelId/:term/:academicYear', authenticateToken, asyn
                 amount_paid: amountPaid,
                 arrears: arrears > 0 ? arrears : 0,
                 status: status,
-                payment_date: payment?.payment_date || null,
-                receipt_number: payment?.receipt_number || null,
-                payment_method: payment?.payment_method || null,
                 payment_id: payment?.id || null
             };
         });
@@ -163,7 +165,7 @@ router.get('/summary/:classLevelId/:term/:academicYear', authenticateToken, asyn
         });
     } catch (error) {
         console.error('Error fetching fee summary:', error);
-        res.status(500).json({ message: 'Failed to fetch fee summary', error: error.message });
+        res.status(500).json({ message: 'Failed to fetch fee summary' });
     }
 });
 
@@ -173,9 +175,6 @@ router.get('/summary/:classLevelId/:term/:academicYear', authenticateToken, asyn
 router.get('/student/:studentId', authenticateToken, async (req, res) => {
     const pool = getDb(req);
     const studentId = req.params.studentId;
-    
-    console.log('===== FETCHING STUDENT HISTORY =====');
-    console.log('Student ID:', studentId);
     
     try {
         const result = await pool.query(
@@ -188,7 +187,7 @@ router.get('/student/:studentId', authenticateToken, async (req, res) => {
         res.json({ fees: result.rows });
     } catch (error) {
         console.error('Error fetching student history:', error);
-        res.status(500).json({ message: 'Failed to fetch student history', error: error.message });
+        res.status(500).json({ message: 'Failed to fetch student history' });
     }
 });
 
@@ -196,52 +195,20 @@ router.get('/student/:studentId', authenticateToken, async (req, res) => {
 // GET FEE SETTINGS
 // ========================================
 router.get('/fee-settings/:classLevelId/:term/:academicYear', authenticateToken, async (req, res) => {
-    const pool = getDb(req);
-    const { classLevelId, term, academicYear } = req.params;
-    
-    console.log('===== FETCHING FEE SETTINGS =====');
-    console.log('Class:', classLevelId);
-    console.log('Term:', term);
-    console.log('Year:', academicYear);
-    
-    try {
-        // Return default settings if table doesn't exist
-        res.json({ 
-            setting: { 
-                fee_amount: 500.00,
-                class_level_id: classLevelId,
-                term: term,
-                academic_year: academicYear
-            } 
-        });
-    } catch (error) {
-        console.error('Error fetching fee settings:', error);
-        res.json({ setting: { fee_amount: 500.00 } });
-    }
+    res.json({ 
+        setting: { 
+            fee_amount: 500.00
+        } 
+    });
 });
 
 // ========================================
 // UPDATE FEE SETTINGS
 // ========================================
 router.put('/fee-settings', authenticateToken, authorizeRole(['admin']), async (req, res) => {
-    const pool = getDb(req);
-    const { class_level_id, term, academic_year, fee_amount } = req.body;
-    
-    console.log('===== UPDATING FEE SETTINGS =====');
-    console.log('Class:', class_level_id);
-    console.log('Term:', term);
-    console.log('Year:', academic_year);
-    console.log('Amount:', fee_amount);
-    
-    try {
-        res.json({ 
-            message: 'Fee setting updated successfully',
-            setting: { class_level_id, term, academic_year, fee_amount }
-        });
-    } catch (error) {
-        console.error('Error updating fee settings:', error);
-        res.status(500).json({ message: 'Failed to update fee settings' });
-    }
+    res.json({ 
+        message: 'Fee setting updated successfully'
+    });
 });
 
 // ========================================
@@ -250,9 +217,6 @@ router.put('/fee-settings', authenticateToken, authorizeRole(['admin']), async (
 router.delete('/payment/:paymentId', authenticateToken, async (req, res) => {
     const pool = getDb(req);
     const paymentId = req.params.paymentId;
-    
-    console.log('===== DELETING PAYMENT =====');
-    console.log('Payment ID:', paymentId);
     
     try {
         await pool.query('DELETE FROM student_school_fees WHERE id = $1', [paymentId]);
