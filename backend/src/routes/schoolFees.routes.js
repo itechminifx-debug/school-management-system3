@@ -16,8 +16,6 @@ router.post('/pay', authenticateToken, async (req, res) => {
     console.log('===== RECORDING PAYMENT =====');
     console.log('Student ID:', student_id);
     console.log('Amount:', amount);
-    console.log('Term:', term);
-    console.log('Year:', academic_year);
     
     if (!student_id || !amount || amount <= 0 || !term || !academic_year) {
         return res.status(400).json({ message: 'All fields are required' });
@@ -26,19 +24,7 @@ router.post('/pay', authenticateToken, async (req, res) => {
     try {
         const receiptNumber = `SCH-${payment_date.replace(/-/g, '')}-${student_id}-${Date.now()}`;
         
-        // Check if student_school_fees table exists
-        const tableCheck = await pool.query(
-            `SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_name = 'student_school_fees'
-            )`
-        );
-        
-        if (!tableCheck.rows[0].exists) {
-            return res.status(500).json({ message: 'Table student_school_fees does not exist' });
-        }
-        
-        // Check if payment record exists for Tuition Fee
+        // Check if payment record exists
         const existingResult = await pool.query(
             `SELECT id, amount_paid, total_amount FROM student_school_fees
              WHERE student_id = $1 AND term = $2 AND academic_year = $3 AND fee_name = 'Tuition Fee'`,
@@ -47,7 +33,6 @@ router.post('/pay', authenticateToken, async (req, res) => {
         
         let result;
         if (existingResult.rows.length > 0) {
-            // Update existing payment
             const currentPaid = parseFloat(existingResult.rows[0].amount_paid) || 0;
             const newAmount = currentPaid + parseFloat(amount);
             const totalAmount = parseFloat(existingResult.rows[0].total_amount) || 500;
@@ -65,9 +50,8 @@ router.post('/pay', authenticateToken, async (req, res) => {
                  RETURNING *`,
                 [newAmount, balance, status, existingResult.rows[0].id]
             );
-            console.log('✅ Updated existing payment:', result.rows[0]);
+            console.log('✅ Updated existing payment');
         } else {
-            // Insert new payment
             const totalAmount = 500.00;
             const balance = totalAmount - parseFloat(amount);
             let status = 'partial';
@@ -75,12 +59,12 @@ router.post('/pay', authenticateToken, async (req, res) => {
             
             result = await pool.query(
                 `INSERT INTO student_school_fees
-                 (student_id, fee_name, term, academic_year, total_amount, amount_paid, balance, status)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                 (student_id, fee_name, term, academic_year, total_amount, amount_paid, balance, status, payment_date, payment_method, receipt_number, collected_by, notes)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                  RETURNING *`,
-                [student_id, 'Tuition Fee', term, academic_year, totalAmount, amount, balance, status]
+                [student_id, 'Tuition Fee', term, academic_year, totalAmount, amount, balance, status, payment_date, payment_method || 'cash', receiptNumber, collected_by, notes || null]
             );
-            console.log('✅ Inserted new payment:', result.rows[0]);
+            console.log('✅ Inserted new payment');
         }
         
         res.json({ 
@@ -142,13 +126,10 @@ router.get('/summary/:classLevelId/:term/:academicYear', authenticateToken, asyn
                 amount_paid: amountPaid,
                 arrears: arrears > 0 ? arrears : 0,
                 status: status,
-                payment_id: payment?.id || null
+                payment_id: payment?.id || null,
+                receipt_number: payment?.receipt_number || null
             };
         });
-        
-        const totalExpected = students.reduce((sum, s) => sum + s.expected_amount, 0);
-        const totalPaid = students.reduce((sum, s) => sum + s.amount_paid, 0);
-        const totalArrears = students.reduce((sum, s) => sum + s.arrears, 0);
         
         res.json({
             class_level_id: parseInt(classLevelId),
@@ -157,15 +138,15 @@ router.get('/summary/:classLevelId/:term/:academicYear', authenticateToken, asyn
             paid_count: students.filter(s => s.status === 'paid').length,
             partial_count: students.filter(s => s.status === 'partial').length,
             unpaid_count: students.filter(s => s.status === 'unpaid').length,
-            total_expected: totalExpected, 
-            total_collected: totalPaid, 
-            total_arrears: totalArrears,
+            total_expected: students.reduce((sum, s) => sum + s.expected_amount, 0),
+            total_collected: students.reduce((sum, s) => sum + s.amount_paid, 0),
+            total_arrears: students.reduce((sum, s) => sum + s.arrears, 0),
             default_expected: defaultExpected,
             students: students
         });
     } catch (error) {
         console.error('Error fetching fee summary:', error);
-        res.status(500).json({ message: 'Failed to fetch fee summary' });
+        res.status(500).json({ message: 'Failed to fetch fee summary', error: error.message });
     }
 });
 
@@ -175,6 +156,9 @@ router.get('/summary/:classLevelId/:term/:academicYear', authenticateToken, asyn
 router.get('/student/:studentId', authenticateToken, async (req, res) => {
     const pool = getDb(req);
     const studentId = req.params.studentId;
+    
+    console.log('===== FETCHING STUDENT HISTORY =====');
+    console.log('Student ID:', studentId);
     
     try {
         const result = await pool.query(
@@ -195,20 +179,14 @@ router.get('/student/:studentId', authenticateToken, async (req, res) => {
 // GET FEE SETTINGS
 // ========================================
 router.get('/fee-settings/:classLevelId/:term/:academicYear', authenticateToken, async (req, res) => {
-    res.json({ 
-        setting: { 
-            fee_amount: 500.00
-        } 
-    });
+    res.json({ setting: { fee_amount: 500.00 } });
 });
 
 // ========================================
 // UPDATE FEE SETTINGS
 // ========================================
 router.put('/fee-settings', authenticateToken, authorizeRole(['admin']), async (req, res) => {
-    res.json({ 
-        message: 'Fee setting updated successfully'
-    });
+    res.json({ message: 'Fee setting updated successfully' });
 });
 
 // ========================================
@@ -233,6 +211,9 @@ router.delete('/payment/:paymentId', authenticateToken, async (req, res) => {
 router.get('/receipt/:receiptNumber', authenticateToken, async (req, res) => {
     const pool = getDb(req);
     const receiptNumber = req.params.receiptNumber;
+    
+    console.log('===== FETCHING RECEIPT =====');
+    console.log('Receipt Number:', receiptNumber);
     
     try {
         const result = await pool.query(
