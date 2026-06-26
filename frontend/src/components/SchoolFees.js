@@ -170,49 +170,60 @@ function SchoolFees() {
     }
   };
 
-  const handleRecordPayment = async () => {
-    if (!paymentAmount || paymentAmount <= 0) {
-      setError('Please enter a valid amount');
-      return;
-    }
+ const handleRecordPayment = async () => {
+  if (!paymentAmount || paymentAmount <= 0) {
+    setError('Please enter a valid amount');
+    return;
+  }
 
-    setLoading(true);
-    const token = localStorage.getItem('token');
+  setLoading(true);
+  const token = localStorage.getItem('token');
+  
+  try {
+    console.log('📌 RECORDING PAYMENT...');
+    console.log('Student:', selectedStudent.id);
+    console.log('Amount:', paymentAmount);
+    console.log('Term:', selectedTerm);
+    console.log('Year:', academicYear);
     
-    try {
-      const response = await axios.post(`${apiUrl}/api/school-fees/pay`, {
-        student_id: selectedStudent.id,
-        amount: parseFloat(paymentAmount),
-        term: selectedTerm,
-        academic_year: academicYear,
-        payment_method: paymentMethod,
-        notes: `School fee payment for ${selectedTerm} ${academicYear}`
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      setMessage(`✅ Payment of ₵${paymentAmount} recorded successfully!`);
-      setPaymentAmount('');
-      setShowPaymentModal(false);
-      setSelectedStudent(null);
-      fetchFeeSummary();
-      
-      if (response.data.receipt_number) {
-        setTimeout(() => {
-          if (window.confirm(`Payment recorded! Receipt number: ${response.data.receipt_number}\n\nWould you like to print the receipt?`)) {
-            fetchReceipt(response.data.receipt_number);
-          }
-        }, 500);
-      }
-      
-      setTimeout(() => setMessage(''), 3000);
-    } catch (err) {
-      setError('Failed to record payment');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
+    const response = await axios.post(`${apiUrl}/api/school-fees/pay`, {
+      student_id: selectedStudent.id,
+      amount: parseFloat(paymentAmount),
+      term: selectedTerm,
+      academic_year: academicYear,
+      payment_method: paymentMethod,
+      notes: `School fee payment for ${selectedTerm} ${academicYear}`
+    }, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    console.log('📌 PAYMENT RESPONSE:', response.data);
+    
+    setMessage(`✅ Payment of ₵${paymentAmount} recorded successfully!`);
+    setPaymentAmount('');
+    setShowPaymentModal(false);
+    setSelectedStudent(null);
+    
+    // Refresh the fee summary
+    fetchFeeSummary();
+    
+    if (response.data.receipt_number) {
+      setTimeout(() => {
+        if (window.confirm(`Payment recorded! Receipt number: ${response.data.receipt_number}\n\nWould you like to print the receipt?`)) {
+          fetchReceipt(response.data.receipt_number);
+        }
+      }, 500);
     }
-  };
+    
+    setTimeout(() => setMessage(''), 3000);
+  } catch (err) {
+    console.error('📌 PAYMENT ERROR:', err.response?.data || err.message);
+    setError(err.response?.data?.message || 'Failed to record payment');
+    setTimeout(() => setError(''), 3000);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleUndoPayment = async (paymentId, studentName, amount) => {
     if (!window.confirm(`⚠️ UNDO PAYMENT\n\nUndo payment of ₵${amount} for ${studentName}?\n\nThis action cannot be undone.`)) {
