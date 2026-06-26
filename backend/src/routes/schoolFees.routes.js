@@ -62,63 +62,72 @@ router.post('/pay', authenticateToken, async (req, res) => {
     const collected_by = req.user.userId;
     const payment_date = new Date().toISOString().split('T')[0];
     
+    console.log('===== RECORDING PAYMENT =====');
+    console.log('Student ID:', student_id);
+    console.log('Amount:', amount);
+    console.log('Term:', term);
+    console.log('Year:', academic_year);
+    
     if (!student_id || !amount || amount <= 0 || !term || !academic_year) {
         return res.status(400).json({ message: 'All fields are required' });
     }
     
     try {
-        // Get student's class to determine expected amount
-        const studentClass = await pool.query(
-            `SELECT s.class_level_id, c.name as class_name
-             FROM students s
-             JOIN class_levels c ON s.class_level_id = c.id
-             WHERE s.id = $1`,
-            [student_id]
-        );
-        
-        // Get fee setting for this class
-        const feeSetting = await pool.query(
-            `SELECT fee_amount FROM class_fee_settings 
-             WHERE class_level_id = $1 AND term = $2 AND academic_year = $3`,
-            [studentClass.rows[0].class_level_id, term, academic_year]
-        );
-        
-        const expectedAmount = feeSetting.rows[0]?.fee_amount || 500.00;
         const receiptNumber = `SCH-${payment_date.replace(/-/g, '')}-${student_id}-${Date.now()}`;
         
-        // Check existing payment
+        // Check if payment already exists for this student, term, and year
         const existingResult = await pool.query(
-            `SELECT id, amount_paid FROM school_fees 
+            `SELECT id, amount_paid, total_amount FROM school_fees 
              WHERE student_id = $1 AND term = $2 AND academic_year = $3`,
             [student_id, term, academic_year]
         );
         
         let result;
         if (existingResult.rows.length > 0) {
-            const newAmount = parseFloat(existingResult.rows[0].amount_paid) + parseFloat(amount);
+            // Update existing payment
+            const currentPaid = parseFloat(existingResult.rows[0].amount_paid);
+            const newAmount = currentPaid + parseFloat(amount);
+            const totalAmount = parseFloat(existingResult.rows[0].total_amount);
+            const balance = totalAmount - newAmount;
+            let status = 'partial';
+            if (balance <= 0) status = 'paid';
+            
             result = await pool.query(
                 `UPDATE school_fees 
-                 SET amount_paid = $1, payment_date = $2, payment_method = $3, receipt_number = $4, 
-                     notes = $5, collected_by = $6, expected_amount = $7
-                 WHERE id = $8
+                 SET amount_paid = $1, 
+                     balance = $2,
+                     status = $3,
+                     payment_date = $4, 
+                     payment_method = $5, 
+                     receipt_number = $6, 
+                     notes = $7, 
+                     collected_by = $8
+                 WHERE id = $9
                  RETURNING *`,
-                [newAmount, payment_date, payment_method, receiptNumber, notes || null, collected_by, expectedAmount, existingResult.rows[0].id]
+                [newAmount, balance, status, payment_date, payment_method, receiptNumber, notes || null, collected_by, existingResult.rows[0].id]
             );
+            console.log('✅ Updated existing payment:', result.rows[0]);
         } else {
+            // Insert new payment
+            const totalAmount = 500.00; // Default tuition fee
+            const balance = totalAmount - parseFloat(amount);
+            let status = 'partial';
+            if (balance <= 0) status = 'paid';
+            
             result = await pool.query(
                 `INSERT INTO school_fees 
-                 (student_id, term, academic_year, expected_amount, amount_paid, payment_date, payment_method, receipt_number, collected_by, notes, fee_amount_at_time)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                 (student_id, term, academic_year, total_amount, amount_paid, balance, status, payment_date, payment_method, receipt_number, collected_by, notes)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                  RETURNING *`,
-                [student_id, term, academic_year, expectedAmount, amount, payment_date, payment_method, receiptNumber, collected_by, notes || null, expectedAmount]
+                [student_id, term, academic_year, totalAmount, amount, balance, status, payment_date, payment_method, receiptNumber, collected_by, notes || null]
             );
+            console.log('✅ Inserted new payment:', result.rows[0]);
         }
         
         res.json({ 
             message: 'Payment recorded successfully',
             payment: result.rows[0],
-            receipt_number: receiptNumber,
-            receipt_url: `/receipt/${receiptNumber}`
+            receipt_number: receiptNumber
         });
     } catch (error) {
         console.error('Error recording payment:', error);
