@@ -105,10 +105,6 @@ function SchoolFees() {
     const token = localStorage.getItem('token');
     
     try {
-      console.log('📌 RECORDING PAYMENT...');
-      console.log('Student:', selectedStudent.id);
-      console.log('Amount:', paymentAmount);
-      
       const response = await axios.post(`${apiUrl}/api/school-fees/pay`, {
         student_id: selectedStudent.id,
         amount: parseFloat(paymentAmount),
@@ -120,8 +116,6 @@ function SchoolFees() {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      console.log('📌 PAYMENT RESPONSE:', response.data);
-      
       setMessage(`✅ Payment of ₵${paymentAmount} recorded successfully!`);
       setPaymentAmount('');
       setShowPaymentModal(false);
@@ -130,7 +124,7 @@ function SchoolFees() {
       
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
-      console.error('📌 PAYMENT ERROR:', err.response?.data || err.message);
+      console.error('Payment error:', err);
       setError(err.response?.data?.message || 'Failed to record payment');
       setTimeout(() => setError(''), 3000);
     } finally {
@@ -270,13 +264,23 @@ function SchoolFees() {
                         💰 Pay
                       </button>
                       
-                      {/* History Button */}
+                      {/* History Button - Always show */}
                       <button 
                         onClick={() => fetchStudentHistory(student)} 
                         style={{ background: '#95a5a6', padding: '4px 12px', marginRight: '5px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}
                       >
                         📜 History
                       </button>
+                      
+                      {/* Receipt Button - Only show if receipt exists */}
+                      {student.receipt_number && (
+                        <button 
+                          onClick={() => fetchReceipt(student.receipt_number)} 
+                          style={{ background: '#2ecc71', padding: '4px 8px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}
+                        >
+                          🧾 Receipt
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -332,34 +336,45 @@ function SchoolFees() {
               <p><strong>Class:</strong> {studentHistory.student?.class_name}</p>
               <p><strong>Admission No:</strong> {studentHistory.student?.admission_number}</p>
               
-              {studentHistory.payments?.length === 0 ? (
+              {studentHistory.fees?.length === 0 ? (
                 <p>No payment records found.</p>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ background: '#1e3c72', color: 'white' }}>
+                        <th style={{ padding: '8px' }}>Fee Type</th>
                         <th style={{ padding: '8px' }}>Term</th>
                         <th style={{ padding: '8px' }}>Year</th>
-                        <th style={{ padding: '8px' }}>Amount</th>
+                        <th style={{ padding: '8px' }}>Amount (₵)</th>
+                        <th style={{ padding: '8px' }}>Status</th>
                         <th style={{ padding: '8px' }}>Date</th>
-                        <th style={{ padding: '8px' }}>Receipt</th>
                         <th style={{ padding: '8px', textAlign: 'center' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {studentHistory.payments?.map(p => (
+                      {studentHistory.fees?.map(p => (
                         <tr key={p.id} style={{ borderBottom: '1px solid #ddd' }}>
-                          <td style={{ padding: '8px' }}>{p.term}</td>
-                          <td style={{ padding: '8px' }}>{p.academic_year}</td>
-                          <td style={{ padding: '8px', color: '#2ecc71', fontWeight: 'bold' }}>₵{p.amount_paid}</td>
-                          <td style={{ padding: '8px' }}>{new Date(p.payment_date).toLocaleDateString()}</td>
-                          <td style={{ padding: '8px' }}>
-                            {p.receipt_number && (
-                              <button onClick={() => fetchReceipt(p.receipt_number)} style={{ background: '#2ecc71', padding: '4px 8px', fontSize: '10px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>🧾 View</button>
-                            )}
+                          <td>{p.fee_name}</td>
+                          <td>{p.term}</td>
+                          <td>{p.academic_year}</td>
+                          <td style={{ color: '#2ecc71', fontWeight: 'bold' }}>₵{p.amount_paid}</td>
+                          <td>
+                            <span style={{
+                              background: p.status === 'paid' ? '#10b981' : p.status === 'partial' ? '#f59e0b' : '#ef4444',
+                              color: 'white',
+                              padding: '2px 12px',
+                              borderRadius: '20px',
+                              fontSize: '11px'
+                            }}>
+                              {p.status?.toUpperCase() || 'UNPAID'}
+                            </span>
                           </td>
-                          <td style={{ padding: '8px', textAlign: 'center' }}>
+                          <td>{new Date(p.payment_date || p.created_at).toLocaleDateString()}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            {p.receipt_number && (
+                              <button onClick={() => fetchReceipt(p.receipt_number)} style={{ background: '#2ecc71', padding: '4px 8px', fontSize: '10px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white', marginRight: '5px' }}>🧾 Receipt</button>
+                            )}
                             <button onClick={() => handleDeletePayment(p.id, studentHistory.student?.full_name, p.amount_paid)} style={{ background: '#e74c3c', padding: '4px 8px', fontSize: '10px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>🗑️ Delete</button>
                           </td>
                         </tr>
@@ -386,10 +401,10 @@ function SchoolFees() {
               </div>
               <div style={{ borderTop: '1px dashed #ddd', borderBottom: '1px dashed #ddd', padding: '10px 0' }}>
                 <p><strong>Receipt No:</strong> {receiptData.receipt_number}</p>
-                <p><strong>Date:</strong> {new Date(receiptData.payment_date).toLocaleDateString()}</p>
-                <p><strong>Student:</strong> {receiptData.full_name || receiptData.student_name}</p>
-                <p><strong>Admission No:</strong> {receiptData.admission_number}</p>
-                <p><strong>Class:</strong> {receiptData.class_name}</p>
+                <p><strong>Date:</strong> {new Date(receiptData.payment_date || receiptData.created_at).toLocaleDateString()}</p>
+                <p><strong>Student:</strong> {receiptData.full_name || receiptData.student_name || 'N/A'}</p>
+                <p><strong>Admission No:</strong> {receiptData.admission_number || 'N/A'}</p>
+                <p><strong>Class:</strong> {receiptData.class_name || 'N/A'}</p>
                 <p><strong>Term:</strong> {receiptData.term} {receiptData.academic_year}</p>
                 <p><strong>Amount Paid:</strong> ₵{receiptData.amount_paid}</p>
                 <p><strong>Payment Method:</strong> {receiptData.payment_method?.toUpperCase() || 'Cash'}</p>
