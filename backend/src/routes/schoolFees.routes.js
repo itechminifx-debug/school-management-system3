@@ -26,19 +26,7 @@ router.post('/pay', authenticateToken, async (req, res) => {
     try {
         const receiptNumber = `SCH-${payment_date.replace(/-/g, '')}-${student_id}-${Date.now()}`;
         
-        // Check if student_school_fees table exists
-        const tableCheck = await pool.query(
-            `SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_name = 'student_school_fees'
-            )`
-        );
-        
-        if (!tableCheck.rows[0].exists) {
-            return res.status(500).json({ message: 'Table student_school_fees does not exist' });
-        }
-        
-        // Check if payment record exists
+        // Check if payment record exists for Tuition Fee
         const existingResult = await pool.query(
             `SELECT id, amount_paid, total_amount FROM student_school_fees
              WHERE student_id = $1 AND term = $2 AND academic_year = $3 AND fee_name = 'Tuition Fee'`,
@@ -52,8 +40,9 @@ router.post('/pay', authenticateToken, async (req, res) => {
             const newAmount = currentPaid + parseFloat(amount);
             const totalAmount = parseFloat(existingResult.rows[0].total_amount) || 500;
             const balance = totalAmount - newAmount;
-            let status = 'partial';
+            let status = 'unpaid';
             if (balance <= 0) status = 'paid';
+            else if (newAmount > 0) status = 'partial';
             
             result = await pool.query(
                 `UPDATE student_school_fees
