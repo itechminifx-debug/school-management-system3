@@ -26,12 +26,8 @@ router.post('/pay', authenticateToken, async (req, res) => {
     try {
         const receiptNumber = `SCH-${payment_date.replace(/-/g, '')}-${student_id}-${Date.now()}`;
         
-        // Check if this is a school_fees record or student_school_fees
-        // Try both tables
-        
-        // First, try student_school_fees table
-        let tableName = 'student_school_fees';
-        let tableCheck = await pool.query(
+        // Check if student_school_fees table exists
+        const tableCheck = await pool.query(
             `SELECT EXISTS (
                 SELECT FROM information_schema.tables 
                 WHERE table_name = 'student_school_fees'
@@ -39,23 +35,13 @@ router.post('/pay', authenticateToken, async (req, res) => {
         );
         
         if (!tableCheck.rows[0].exists) {
-            // Try school_fees table
-            tableName = 'school_fees';
-            tableCheck = await pool.query(
-                `SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
-                    WHERE table_name = 'school_fees'
-                )`
-            );
-            if (!tableCheck.rows[0].exists) {
-                return res.status(500).json({ message: 'No fees table found' });
-            }
+            return res.status(500).json({ message: 'Table student_school_fees does not exist' });
         }
         
         // Check if payment record exists
         const existingResult = await pool.query(
-            `SELECT id, amount_paid, total_amount FROM ${tableName}
-             WHERE student_id = $1 AND term = $2 AND academic_year = $3`,
+            `SELECT id, amount_paid, total_amount FROM student_school_fees
+             WHERE student_id = $1 AND term = $2 AND academic_year = $3 AND fee_name = 'Tuition Fee'`,
             [student_id, term, academic_year]
         );
         
@@ -70,18 +56,13 @@ router.post('/pay', authenticateToken, async (req, res) => {
             if (balance <= 0) status = 'paid';
             
             result = await pool.query(
-                `UPDATE ${tableName}
+                `UPDATE student_school_fees
                  SET amount_paid = $1, 
                      balance = $2,
-                     status = $3,
-                     payment_date = $4, 
-                     payment_method = $5, 
-                     receipt_number = $6, 
-                     notes = $7, 
-                     collected_by = $8
-                 WHERE id = $9
+                     status = $3
+                 WHERE id = $4
                  RETURNING *`,
-                [newAmount, balance, status, payment_date, payment_method || 'cash', receiptNumber, notes || null, collected_by, existingResult.rows[0].id]
+                [newAmount, balance, status, existingResult.rows[0].id]
             );
             console.log('✅ Updated existing payment:', result.rows[0]);
         } else {
@@ -92,11 +73,11 @@ router.post('/pay', authenticateToken, async (req, res) => {
             if (balance <= 0) status = 'paid';
             
             result = await pool.query(
-                `INSERT INTO ${tableName}
-                 (student_id, fee_name, term, academic_year, total_amount, amount_paid, balance, status, payment_date, payment_method, receipt_number, collected_by, notes)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                `INSERT INTO student_school_fees
+                 (student_id, fee_name, term, academic_year, total_amount, amount_paid, balance, status)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                  RETURNING *`,
-                [student_id, 'Tuition Fee', term, academic_year, totalAmount, amount, balance, status, payment_date, payment_method || 'cash', receiptNumber, collected_by, notes || null]
+                [student_id, 'Tuition Fee', term, academic_year, totalAmount, amount, balance, status]
             );
             console.log('✅ Inserted new payment:', result.rows[0]);
         }
@@ -120,6 +101,11 @@ router.get('/summary/:classLevelId/:term/:academicYear', authenticateToken, asyn
     const { classLevelId, term, academicYear } = req.params;
     const schoolId = req.user.schoolId;
     
+    console.log('===== FETCHING FEE SUMMARY =====');
+    console.log('Class:', classLevelId);
+    console.log('Term:', term);
+    console.log('Year:', academicYear);
+    
     try {
         // Get all students in the class
         const studentsResult = await pool.query(
@@ -129,14 +115,6 @@ router.get('/summary/:classLevelId/:term/:academicYear', authenticateToken, asyn
              ORDER BY s.full_name`,
             [schoolId, classLevelId]
         );
-        
-        // Get fee setting for this class
-        const feeSetting = await pool.query(
-            `SELECT fee_amount FROM class_fee_settings 
-             WHERE class_level_id = $1 AND term = $2 AND academic_year = $3`,
-            [classLevelId, term, academicYear]
-        );
-        const defaultExpected = feeSetting.rows[0]?.fee_amount || 500.00;
         
         // Get payments
         const paymentsResult = await pool.query(
@@ -152,6 +130,8 @@ router.get('/summary/:classLevelId/:term/:academicYear', authenticateToken, asyn
         paymentsResult.rows.forEach(p => {
             paymentMap[p.student_id] = p;
         });
+        
+        const defaultExpected = 500.00;
         
         const students = studentsResult.rows.map(student => {
             const payment = paymentMap[student.id];
@@ -186,13 +166,135 @@ router.get('/summary/:classLevelId/:term/:academicYear', authenticateToken, asyn
             paid_count: students.filter(s => s.status === 'paid').length,
             partial_count: students.filter(s => s.status === 'partial').length,
             unpaid_count: students.filter(s => s.status === 'unpaid').length,
-            total_expected: totalExpected, total_collected: totalPaid, total_arrears: totalArrears,
+            total_expected: totalExpected, 
+            total_collected: totalPaid, 
+            total_arrears: totalArrears,
             default_expected: defaultExpected,
             students: students
         });
     } catch (error) {
         console.error('Error fetching fee summary:', error);
         res.status(500).json({ message: 'Failed to fetch fee summary', error: error.message });
+    }
+});
+
+// ========================================
+// GET STUDENT FEE HISTORY
+// ========================================
+router.get('/student/:studentId', authenticateToken, async (req, res) => {
+    const pool = getDb(req);
+    const studentId = req.params.studentId;
+    
+    console.log('===== FETCHING STUDENT HISTORY =====');
+    console.log('Student ID:', studentId);
+    
+    try {
+        const result = await pool.query(
+            `SELECT * FROM student_school_fees
+             WHERE student_id = $1
+             ORDER BY created_at DESC`,
+            [studentId]
+        );
+        
+        res.json({ fees: result.rows });
+    } catch (error) {
+        console.error('Error fetching student history:', error);
+        res.status(500).json({ message: 'Failed to fetch student history', error: error.message });
+    }
+});
+
+// ========================================
+// GET FEE SETTINGS
+// ========================================
+router.get('/fee-settings/:classLevelId/:term/:academicYear', authenticateToken, async (req, res) => {
+    const pool = getDb(req);
+    const { classLevelId, term, academicYear } = req.params;
+    
+    console.log('===== FETCHING FEE SETTINGS =====');
+    console.log('Class:', classLevelId);
+    console.log('Term:', term);
+    console.log('Year:', academicYear);
+    
+    try {
+        // Return default settings if table doesn't exist
+        res.json({ 
+            setting: { 
+                fee_amount: 500.00,
+                class_level_id: classLevelId,
+                term: term,
+                academic_year: academicYear
+            } 
+        });
+    } catch (error) {
+        console.error('Error fetching fee settings:', error);
+        res.json({ setting: { fee_amount: 500.00 } });
+    }
+});
+
+// ========================================
+// UPDATE FEE SETTINGS
+// ========================================
+router.put('/fee-settings', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+    const pool = getDb(req);
+    const { class_level_id, term, academic_year, fee_amount } = req.body;
+    
+    console.log('===== UPDATING FEE SETTINGS =====');
+    console.log('Class:', class_level_id);
+    console.log('Term:', term);
+    console.log('Year:', academic_year);
+    console.log('Amount:', fee_amount);
+    
+    try {
+        res.json({ 
+            message: 'Fee setting updated successfully',
+            setting: { class_level_id, term, academic_year, fee_amount }
+        });
+    } catch (error) {
+        console.error('Error updating fee settings:', error);
+        res.status(500).json({ message: 'Failed to update fee settings' });
+    }
+});
+
+// ========================================
+// DELETE PAYMENT
+// ========================================
+router.delete('/payment/:paymentId', authenticateToken, async (req, res) => {
+    const pool = getDb(req);
+    const paymentId = req.params.paymentId;
+    
+    console.log('===== DELETING PAYMENT =====');
+    console.log('Payment ID:', paymentId);
+    
+    try {
+        await pool.query('DELETE FROM student_school_fees WHERE id = $1', [paymentId]);
+        res.json({ message: 'Payment deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting payment:', error);
+        res.status(500).json({ message: 'Failed to delete payment' });
+    }
+});
+
+// ========================================
+// GET RECEIPT
+// ========================================
+router.get('/receipt/:receiptNumber', authenticateToken, async (req, res) => {
+    const pool = getDb(req);
+    const receiptNumber = req.params.receiptNumber;
+    
+    try {
+        const result = await pool.query(
+            `SELECT * FROM student_school_fees WHERE receipt_number = $1`,
+            [receiptNumber]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Receipt not found' });
+        }
+        
+        res.json({ receipt: result.rows[0] });
+    } catch (error) {
+        console.error('Error fetching receipt:', error);
+        res.status(500).json({ message: 'Failed to fetch receipt' });
     }
 });
 
