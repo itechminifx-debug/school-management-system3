@@ -8,16 +8,22 @@ function SchoolFees() {
   const [academicYear, setAcademicYear] = useState('2026');
   const [feeData, setFeeData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [studentHistory, setStudentHistory] = useState(null);
   const [receiptData, setReceiptData] = useState(null);
+  const [classFeeAmount, setClassFeeAmount] = useState('');
+  const [currentFeeSetting, setCurrentFeeSetting] = useState(null);
+  const [showSettingsMessage, setShowSettingsMessage] = useState('');
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const apiUrl = 'https://school-management-api-5mml.onrender.com';
 
@@ -28,7 +34,19 @@ function SchoolFees() {
   useEffect(() => {
     if (selectedClass && selectedTerm && academicYear) {
       fetchFeeSummary();
+      fetchFeeSetting();
     }
+  }, [selectedClass, selectedTerm, academicYear]);
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (selectedClass && !loading) {
+        console.log('📌 Auto-refreshing fee data...');
+        fetchFeeSummary();
+      }
+    }, 30000);
+    return () => clearInterval(interval);
   }, [selectedClass, selectedTerm, academicYear]);
 
   const fetchClassLevels = async () => {
@@ -55,12 +73,30 @@ function SchoolFees() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setFeeData(response.data);
+      setLastUpdated(new Date());
       setError('');
     } catch (error) {
       console.error('Error fetching fee summary:', error);
       setError('Failed to load fee data');
     } finally {
       setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const fetchFeeSetting = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      const response = await axios.get(
+        `${apiUrl}/api/school-fees/fee-settings/${selectedClass}/${selectedTerm}/${academicYear}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setCurrentFeeSetting(response.data.setting);
+      if (response.data.setting) {
+        setClassFeeAmount(response.data.setting.fee_amount.toString());
+      }
+    } catch (error) {
+      console.error('Error fetching fee setting:', error);
     }
   };
 
@@ -95,6 +131,44 @@ function SchoolFees() {
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchFeeSummary();
+    await fetchFeeSetting();
+    setRefreshing(false);
+  };
+
+  const handleUpdateFeeSetting = async () => {
+    if (!classFeeAmount || classFeeAmount <= 0) {
+      setShowSettingsMessage('Please enter a valid fee amount');
+      return;
+    }
+
+    setLoading(true);
+    const token = localStorage.getItem('token');
+    
+    try {
+      await axios.put(`${apiUrl}/api/school-fees/fee-settings`, {
+        class_level_id: parseInt(selectedClass),
+        term: selectedTerm,
+        academic_year: academicYear,
+        fee_amount: parseFloat(classFeeAmount)
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setShowSettingsMessage('✅ Fee amount updated successfully!');
+      fetchFeeSetting();
+      fetchFeeSummary();
+      setTimeout(() => setShowSettingsMessage(''), 3000);
+    } catch (err) {
+      setShowSettingsMessage('❌ Failed to update fee amount');
+      setTimeout(() => setShowSettingsMessage(''), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleRecordPayment = async () => {
     if (!paymentAmount || paymentAmount <= 0) {
       setError('Please enter a valid amount');
@@ -109,9 +183,7 @@ function SchoolFees() {
         student_id: selectedStudent.id,
         amount: parseFloat(paymentAmount),
         term: selectedTerm,
-        academic_year: academicYear,
-        payment_method: paymentMethod,
-        notes: `School fee payment for ${selectedTerm} ${academicYear}`
+        academic_year: academicYear
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -132,8 +204,8 @@ function SchoolFees() {
     }
   };
 
-  const handleDeletePayment = async (paymentId, studentName, amount) => {
-    if (!window.confirm(`⚠️ DELETE PAYMENT\n\nDelete payment of ₵${amount} for ${studentName}?\n\nThis action cannot be undone.`)) {
+  const handleResetPayment = async (paymentId, studentName, amount) => {
+    if (!window.confirm(`⚠️ RESET PAYMENT\n\nReset payment of ₵${amount} for ${studentName}?\n\nThis will set the payment to UNPAID.\n\nThis action cannot be undone.`)) {
       return;
     }
 
@@ -145,12 +217,12 @@ function SchoolFees() {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      setMessage(`🗑️ Payment of ₵${amount} for ${studentName} has been deleted!`);
+      setMessage(`↶ Payment of ₵${amount} for ${studentName} has been reset to unpaid!`);
       fetchFeeSummary();
       setShowHistoryModal(false);
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
-      setError('Failed to delete payment');
+      setError('Failed to reset payment');
       setTimeout(() => setError(''), 3000);
     } finally {
       setLoading(false);
@@ -215,7 +287,42 @@ function SchoolFees() {
               style={{ width: '100%', padding: '0.5rem', borderRadius: '8px' }}
             />
           </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '5px' }}>
+            <button 
+              onClick={handleRefresh} 
+              disabled={refreshing}
+              style={{ 
+                background: '#6366f1', 
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                color: 'white'
+              }}
+            >
+              {refreshing ? '🔄 Refreshing...' : '🔄 Refresh'}
+            </button>
+            <button 
+              onClick={() => setShowSettingsModal(true)} 
+              style={{ background: '#f59e0b', padding: '0.5rem 1rem', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white' }}
+            >
+              ⚙️ Set Fee
+            </button>
+          </div>
         </div>
+
+        {lastUpdated && (
+          <p style={{ fontSize: '0.7rem', color: '#888', marginBottom: '1rem' }}>
+            Last updated: {lastUpdated.toLocaleTimeString()}
+          </p>
+        )}
+
+        {/* Current Fee Display */}
+        {currentFeeSetting && (
+          <div className="success" style={{ textAlign: 'center', marginBottom: '1rem' }}>
+            📌 {getClassName(parseInt(selectedClass))} Fee: ₵{currentFeeSetting.fee_amount} per student for {selectedTerm} {academicYear}
+          </div>
+        )}
 
         {/* Summary Stats */}
         {feeData && (
@@ -264,23 +371,13 @@ function SchoolFees() {
                         💰 Pay
                       </button>
                       
-                      {/* History Button - Always show */}
+                      {/* History Button */}
                       <button 
                         onClick={() => fetchStudentHistory(student)} 
                         style={{ background: '#95a5a6', padding: '4px 12px', marginRight: '5px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}
                       >
                         📜 History
                       </button>
-                      
-                      {/* Receipt Button - Only show if receipt exists */}
-                      {student.receipt_number && (
-                        <button 
-                          onClick={() => fetchReceipt(student.receipt_number)} 
-                          style={{ background: '#2ecc71', padding: '4px 8px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}
-                        >
-                          🧾 Receipt
-                        </button>
-                      )}
                     </td>
                   </tr>
                 ))}
@@ -288,6 +385,31 @@ function SchoolFees() {
             </table>
           </div>
         ) : null}
+
+        {/* Settings Modal */}
+        {showSettingsModal && (
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+            <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', width: '400px' }}>
+              <h3>Set Fee Amount for {getClassName(parseInt(selectedClass))}</h3>
+              <p><strong>Term:</strong> {selectedTerm} {academicYear}</p>
+              {showSettingsMessage && <div className={showSettingsMessage.includes('✅') ? 'success' : 'error'} style={{ marginBottom: '1rem' }}>{showSettingsMessage}</div>}
+              <div>
+                <label>Fee Amount (₵):</label>
+                <input 
+                  type="number" 
+                  value={classFeeAmount} 
+                  onChange={(e) => setClassFeeAmount(e.target.value)} 
+                  placeholder="Enter fee amount"
+                  style={{ width: '100%', padding: '0.5rem', margin: '0.5rem 0' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                <button onClick={() => { setShowSettingsModal(false); setShowSettingsMessage(''); }} style={{ background: '#95a5a6', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>Cancel</button>
+                <button onClick={handleUpdateFeeSetting} style={{ background: '#2ecc71', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>Save</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Payment Modal */}
         {showPaymentModal && selectedStudent && (
@@ -370,12 +492,9 @@ function SchoolFees() {
                               {p.status?.toUpperCase() || 'UNPAID'}
                             </span>
                           </td>
-                          <td>{new Date(p.payment_date || p.created_at).toLocaleDateString()}</td>
+                          <td>{new Date(p.created_at).toLocaleDateString()}</td>
                           <td style={{ textAlign: 'center' }}>
-                            {p.receipt_number && (
-                              <button onClick={() => fetchReceipt(p.receipt_number)} style={{ background: '#2ecc71', padding: '4px 8px', fontSize: '10px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white', marginRight: '5px' }}>🧾 Receipt</button>
-                            )}
-                            <button onClick={() => handleDeletePayment(p.id, studentHistory.student?.full_name, p.amount_paid)} style={{ background: '#e74c3c', padding: '4px 8px', fontSize: '10px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>🗑️ Delete</button>
+                            <button onClick={() => handleResetPayment(p.id, studentHistory.student?.full_name, p.amount_paid)} style={{ background: '#e74c3c', padding: '4px 8px', fontSize: '10px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>↶ Reset</button>
                           </td>
                         </tr>
                       ))}
@@ -401,13 +520,12 @@ function SchoolFees() {
               </div>
               <div style={{ borderTop: '1px dashed #ddd', borderBottom: '1px dashed #ddd', padding: '10px 0' }}>
                 <p><strong>Receipt No:</strong> {receiptData.receipt_number}</p>
-                <p><strong>Date:</strong> {new Date(receiptData.payment_date || receiptData.created_at).toLocaleDateString()}</p>
+                <p><strong>Date:</strong> {new Date(receiptData.created_at).toLocaleDateString()}</p>
                 <p><strong>Student:</strong> {receiptData.full_name || receiptData.student_name || 'N/A'}</p>
                 <p><strong>Admission No:</strong> {receiptData.admission_number || 'N/A'}</p>
                 <p><strong>Class:</strong> {receiptData.class_name || 'N/A'}</p>
                 <p><strong>Term:</strong> {receiptData.term} {receiptData.academic_year}</p>
                 <p><strong>Amount Paid:</strong> ₵{receiptData.amount_paid}</p>
-                <p><strong>Payment Method:</strong> {receiptData.payment_method?.toUpperCase() || 'Cash'}</p>
               </div>
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1rem' }}>
                 <button onClick={handlePrintReceipt} style={{ background: '#2ecc71', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>🖨️ Print Receipt</button>
