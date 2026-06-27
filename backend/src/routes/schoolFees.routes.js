@@ -9,21 +9,19 @@ const getDb = (req) => req.app.get('db');
 // ========================================
 router.post('/pay', authenticateToken, async (req, res) => {
     const pool = getDb(req);
-    const { student_id, amount, term, academic_year, payment_method, notes } = req.body;
-    const collected_by = req.user.userId;
-    const payment_date = new Date().toISOString().split('T')[0];
+    const { student_id, amount, term, academic_year } = req.body;
     
     console.log('===== RECORDING PAYMENT =====');
     console.log('Student ID:', student_id);
     console.log('Amount:', amount);
+    console.log('Term:', term);
+    console.log('Year:', academic_year);
     
     if (!student_id || !amount || amount <= 0 || !term || !academic_year) {
         return res.status(400).json({ message: 'All fields are required' });
     }
     
     try {
-        const receiptNumber = `SCH-${payment_date.replace(/-/g, '')}-${student_id}-${Date.now()}`;
-        
         // Check if payment record exists for Tuition Fee
         const existingResult = await pool.query(
             `SELECT id, amount_paid, total_amount FROM student_school_fees
@@ -45,15 +43,10 @@ router.post('/pay', authenticateToken, async (req, res) => {
                 `UPDATE student_school_fees
                  SET amount_paid = $1, 
                      balance = $2,
-                     status = $3,
-                     payment_date = $4,
-                     payment_method = $5,
-                     receipt_number = $6,
-                     collected_by = $7,
-                     notes = $8
-                 WHERE id = $9
+                     status = $3
+                 WHERE id = $4
                  RETURNING *`,
-                [newAmount, balance, status, payment_date, payment_method || 'cash', receiptNumber, collected_by, notes || null, existingResult.rows[0].id]
+                [newAmount, balance, status, existingResult.rows[0].id]
             );
             console.log('✅ Updated existing payment');
         } else {
@@ -64,18 +57,17 @@ router.post('/pay', authenticateToken, async (req, res) => {
             
             result = await pool.query(
                 `INSERT INTO student_school_fees
-                 (student_id, fee_name, term, academic_year, total_amount, amount_paid, balance, status, payment_date, payment_method, receipt_number, collected_by, notes)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                 (student_id, fee_name, term, academic_year, total_amount, amount_paid, balance, status)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                  RETURNING *`,
-                [student_id, 'Tuition Fee', term, academic_year, totalAmount, amount, balance, status, payment_date, payment_method || 'cash', receiptNumber, collected_by, notes || null]
+                [student_id, 'Tuition Fee', term, academic_year, totalAmount, amount, balance, status]
             );
             console.log('✅ Inserted new payment');
         }
         
         res.json({ 
             message: 'Payment recorded successfully',
-            payment: result.rows[0],
-            receipt_number: receiptNumber
+            payment: result.rows[0]
         });
     } catch (error) {
         console.error('Error recording payment:', error);
@@ -131,9 +123,7 @@ router.get('/summary/:classLevelId/:term/:academicYear', authenticateToken, asyn
                 amount_paid: amountPaid,
                 arrears: arrears > 0 ? arrears : 0,
                 status: status,
-                payment_id: payment?.id || null,
-                receipt_number: payment?.receipt_number || null,
-                payment_date: payment?.payment_date || null
+                payment_id: payment?.id || null
             };
         });
         
@@ -196,13 +186,13 @@ router.put('/fee-settings', authenticateToken, authorizeRole(['admin']), async (
 });
 
 // ========================================
-// RESET PAYMENT TO UNPAID (NOT DELETE)
+// RESET PAYMENT TO UNPAID
 // ========================================
 router.delete('/payment/:paymentId', authenticateToken, async (req, res) => {
     const pool = getDb(req);
     const paymentId = req.params.paymentId;
     
-    console.log('===== RESETTING PAYMENT TO UNPAID =====');
+    console.log('===== RESETTING PAYMENT =====');
     console.log('Payment ID:', paymentId);
     
     try {
@@ -216,20 +206,12 @@ router.delete('/payment/:paymentId', authenticateToken, async (req, res) => {
             return res.status(404).json({ message: 'Payment record not found' });
         }
         
-        const payment = checkResult.rows[0];
-        console.log('Current payment:', payment);
-        
-        // Reset payment to unpaid (don't delete)
+        // Reset payment to unpaid (UPDATE, not DELETE)
         const result = await pool.query(
             `UPDATE student_school_fees 
              SET amount_paid = 0, 
                  balance = total_amount, 
-                 status = 'unpaid',
-                 payment_date = NULL,
-                 payment_method = NULL,
-                 receipt_number = NULL,
-                 collected_by = NULL,
-                 notes = NULL
+                 status = 'unpaid'
              WHERE id = $1
              RETURNING *`,
             [paymentId]
