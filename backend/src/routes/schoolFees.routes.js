@@ -172,10 +172,77 @@ router.get('/student/:studentId', authenticateToken, async (req, res) => {
 });
 
 // ========================================
-// GET FEE SETTINGS
+// GET CLASS FEE SETTINGS
 // ========================================
 router.get('/fee-settings/:classLevelId/:term/:academicYear', authenticateToken, async (req, res) => {
-    res.json({ setting: { fee_amount: 500.00 } });
+    const pool = getDb(req);
+    const { classLevelId, term, academicYear } = req.params;
+    
+    console.log('===== FETCHING FEE SETTINGS =====');
+    console.log('Class:', classLevelId);
+    console.log('Term:', term);
+    console.log('Year:', academicYear);
+    
+    try {
+        const result = await pool.query(
+            `SELECT * FROM class_fee_settings 
+             WHERE class_level_id = $1 AND term = $2 AND academic_year = $3`,
+            [classLevelId, term, academicYear]
+        );
+        
+        if (result.rows.length > 0) {
+            res.json({ setting: result.rows[0] });
+        } else {
+            // Return default if no setting found
+            res.json({ setting: { fee_amount: 500.00 } });
+        }
+    } catch (error) {
+        console.error('Error fetching fee settings:', error);
+        res.json({ setting: { fee_amount: 500.00 } });
+    }
+});
+
+// ========================================
+// UPDATE CLASS FEE SETTINGS
+// ========================================
+router.put('/fee-settings', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+    const pool = getDb(req);
+    const { class_level_id, term, academic_year, fee_amount } = req.body;
+    
+    console.log('===== UPDATING FEE SETTINGS =====');
+    console.log('Class:', class_level_id);
+    console.log('Term:', term);
+    console.log('Year:', academic_year);
+    console.log('Amount:', fee_amount);
+    
+    try {
+        // Upsert the fee setting
+        const result = await pool.query(
+            `INSERT INTO class_fee_settings (class_level_id, term, academic_year, fee_amount)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (class_level_id, term, academic_year)
+             DO UPDATE SET fee_amount = $4, updated_at = CURRENT_TIMESTAMP
+             RETURNING *`,
+            [class_level_id, term, academic_year, fee_amount]
+        );
+        
+        // Update all students in this class with the new fee amount
+        await pool.query(
+            `UPDATE student_school_fees 
+             SET total_amount = $1, balance = $1
+             WHERE student_id IN (SELECT id FROM students WHERE class_level_id = $2)
+             AND term = $3 AND academic_year = $4`,
+            [fee_amount, class_level_id, term, academic_year]
+        );
+        
+        res.json({ 
+            message: 'Fee settings updated successfully',
+            setting: result.rows[0]
+        });
+    } catch (error) {
+        console.error('Error updating fee settings:', error);
+        res.status(500).json({ message: 'Failed to update fee settings', error: error.message });
+    }
 });
 
 // ========================================
